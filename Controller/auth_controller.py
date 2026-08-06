@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from db import get_connection
 import uuid
+import bcrypt
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -16,15 +17,25 @@ def login():
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     
-    cursor.execute("SELECT id, name, role, email, description, icon, color FROM users WHERE email = %s AND password = %s", (email, password))
+    cursor.execute("SELECT id, name, role, email, password, description FROM users WHERE email = %s", (email,))
     user = cursor.fetchone()
     
     cursor.close()
     conn.close()
     
-    if user:
+    if user and bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
+        del user['password'] # Remove encrypted password before returning to client
+        
+        raw_role = user['role'].strip()
+        system_role_map = {
+            'Developer': 'developer',
+            'Solution Architect': 'architect',
+            'Tech Lead': 'techlead',
+            'Platform / DevOps Engineer': 'devops'
+        }
+        
         # Define RBAC mappings
-        role_id = user['id']
+        role_id = system_role_map.get(raw_role, 'developer')
         
         session_id = str(uuid.uuid4())
         
@@ -38,7 +49,7 @@ def login():
         dashboard_map = {
             'developer': '/developer/dashboard',
             'architect': '/architect/dashboard',
-            'techlead': '/reviewer/dashboard',
+            'techlead': '/techlead/dashboard',
             'devops': '/devops/dashboard'
         }
         
@@ -60,7 +71,7 @@ def login():
                 {'name': 'Advisor Chat', 'path': '/chat', 'icon': 'ChatBubbleLeftIcon'}
             ],
             'techlead': [
-                {'name': 'Dashboard', 'path': '/reviewer/dashboard', 'icon': 'ChartBarIcon'},
+                {'name': 'Dashboard', 'path': '/techlead/dashboard', 'icon': 'ChartBarIcon'},
                 {'name': 'Validation Reports', 'path': '/validation', 'icon': 'ClipboardDocumentCheckIcon'},
                 {'name': 'Review Queue', 'path': '/review/queue', 'icon': 'InboxIcon'},
                 {'name': 'Approvals', 'path': '/approvals', 'icon': 'CheckBadgeIcon'},
@@ -100,7 +111,7 @@ def get_personas():
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     
-    cursor.execute("SELECT email, password, icon, color, role, name FROM users")
+    cursor.execute("SELECT email, role, name, description FROM users")
     users = cursor.fetchall()
     
     cursor.close()

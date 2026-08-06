@@ -1,12 +1,10 @@
 CREATE TABLE IF NOT EXISTS users (
-    id VARCHAR(50) PRIMARY KEY,
+    id INT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     role VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     description TEXT,
-    icon VARCHAR(10),
-    color VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
