@@ -30,7 +30,7 @@ def get_metrics(role):
         cursor.execute("SELECT COUNT(*) as c FROM generation_requests WHERE status = 'draft'")
         metrics['architecture_reviews'] = cursor.fetchone()['c']
         
-        cursor.execute("SELECT COUNT(*) as c FROM patterns")
+        cursor.execute("SELECT COUNT(*) as c FROM pattern_matches")
         metrics['pattern_matches'] = cursor.fetchone()['c']
         
         cursor.execute("SELECT COUNT(*) as c FROM blueprints")
