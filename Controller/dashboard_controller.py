@@ -62,7 +62,7 @@ def get_metrics(role):
         cursor.execute("SELECT COUNT(*) as c FROM generation_requests")
         metrics['environment_status'] = cursor.fetchone()['c']
         
-        cursor.execute("SELECT COUNT(*) as c FROM validation_results WHERE status = 'passed'")
+        cursor.execute("SELECT COUNT(*) as c FROM validation_results WHERE passed = TRUE")
         metrics['configuration_health'] = cursor.fetchone()['c']
         
     cursor.close()
