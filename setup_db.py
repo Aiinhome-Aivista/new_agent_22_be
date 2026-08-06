@@ -20,6 +20,29 @@ def create_database():
     except Error as e:
         print(f"Error while connecting to MySQL or creating DB: {e}")
 
+def seed_users():
+    try:
+        conn = mysql.connector.connect(
+            host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD, database=DB_NAME
+        )
+        cursor = conn.cursor()
+        users = [
+            ('developer', 'Engagement Manager', 'Engagement Manager', 'manager@example.com', 'password123', 'Provides topic names...', 'EM', 'border-emerald-600 text-emerald-600 bg-emerald-50'),
+            ('architect', 'Project Lead', 'Project Lead', 'lead@example.com', 'password123', 'Provides messaging pattern...', 'PL', 'border-blue-600 text-blue-600 bg-blue-50'),
+            ('techlead', 'PMO', 'PMO', 'reviewer@example.com', 'password123', 'Reviews validation report...', 'QR', 'border-purple-600 text-purple-600 bg-purple-50'),
+            ('devops', 'Finance', 'Finance', 'finance@example.com', 'password123', 'Reviews CI/CD, packaging...', 'FC', 'border-amber-600 text-amber-600 bg-amber-50')
+        ]
+        # Clear users table first so we get the new names
+        cursor.execute("TRUNCATE TABLE users")
+        for u in users:
+            cursor.execute("INSERT IGNORE INTO users (id, name, role, email, password, description, icon, color) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", u)
+        conn.commit()
+        print("Users seeded successfully.")
+        cursor.close()
+        conn.close()
+    except Error as e:
+        print(f"Error seeding users: {e}")
+
 def run_schema():
     try:
         conn = mysql.connector.connect(
@@ -65,4 +88,5 @@ def ingest_knowledge_base():
 if __name__ == '__main__':
     create_database()
     run_schema()
+    seed_users()
     print("Database setup complete.")
