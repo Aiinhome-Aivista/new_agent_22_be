@@ -149,3 +149,13 @@ CREATE TABLE IF NOT EXISTS chat_history (
     FOREIGN KEY (request_id) REFERENCES generation_requests(id) ON DELETE CASCADE,
     INDEX (session_id)
 );
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    role VARCHAR(100),
+    action VARCHAR(255) NOT NULL,
+    prompt_text TEXT,
+    entity_id VARCHAR(255),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
