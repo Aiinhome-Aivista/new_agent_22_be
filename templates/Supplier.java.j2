@@ -1,0 +1,19 @@
+package com.digiconfx.kafka.{{ package_name }}.supplier;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import java.util.function.Supplier;
+import lombok.extern.slf4j.Slf4j;
+
+@Configuration
+@Slf4j
+public class {{ supplier_class_name }} {
+
+    @Bean
+    public Supplier<String> produce() {
+        return () -> {
+            // Note: Implement actual supplier logic here if required by requirements
+            return null;
+        };
+    }
+}

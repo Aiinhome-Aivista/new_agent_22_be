@@ -1,0 +1,25 @@
+package com.digiconfx.kafka.{{ package_name }}.handler;
+
+import org.springframework.stereotype.Component;
+import lombok.extern.slf4j.Slf4j;
+
+@Component
+@Slf4j
+public class {{ handler_class_name }} {
+
+    public String handle(String input) {
+        log.debug("Handling input: {}", input);
+        try {
+            // Note: Implement specific business logic based on schema_hints
+            return "Processed_" + input;
+        } catch (Exception e) {
+            log.error("Error processing record: {}", e.getMessage(), e);
+            {% if error_topic_policy %}
+            // Route to error topic per policy: {{ error_topic_policy }}
+            throw new RuntimeException("Routing to DLQ", e);
+            {% else %}
+            return null;
+            {% endif %}
+        }
+    }
+}

@@ -1,0 +1,13 @@
+package com.digiconfx.kafka.{{ package_name }}.processor;
+
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+public class {{ processor_class_name }}Test {
+
+    @Test
+    public void testProcessorInstantiates() {
+        {{ processor_class_name }} processor = new {{ processor_class_name }}(null);
+        assertNotNull(processor);
+    }
+}

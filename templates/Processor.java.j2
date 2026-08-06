@@ -1,0 +1,34 @@
+package com.digiconfx.kafka.{{ package_name }}.processor;
+
+import org.apache.kafka.streams.kstream.KStream;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import lombok.extern.slf4j.Slf4j;
+{% if state_store_needed %}
+import org.apache.kafka.streams.kstream.KTable;
+import org.apache.kafka.streams.kstream.Materialized;
+{% endif %}
+
+@Configuration
+@Slf4j
+public class {{ processor_class_name }} {
+
+    private final {{ handler_class_name }} handler;
+
+    public {{ processor_class_name }}({{ handler_class_name }} handler) {
+        this.handler = handler;
+    }
+
+    @Bean
+    public java.util.function.Function<KStream<String, String>, KStream<String, String>> process() {
+        return input -> input
+            .peek((key, value) -> log.info("Received key: {}, value: {}", key, value))
+            .mapValues(handler::handle)
+            {% if state_store_needed %}
+            .groupByKey()
+            .reduce((aggValue, newValue) -> newValue, Materialized.as("{{ application_id }}-store"))
+            .toStream()
+            {% endif %}
+            .peek((key, value) -> log.info("Output key: {}, value: {}", key, value));
+    }
+}
