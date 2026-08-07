@@ -27,7 +27,7 @@ def write_audit(request_id, agent_name, action, input_sum, output_sum, error="")
         (request_id, agent_name, action, str(input_sum), str(output_sum), error)
     )
 
-def run_pipeline(request_id, job_id):
+def run_pipeline(request_id, job_id, draft_mode=False):
     try:
         update_job_status(job_id, 'running', 'Initialization', 'Started pipeline execution')
         
@@ -60,10 +60,15 @@ def run_pipeline(request_id, job_id):
         blueprint = generate_blueprint(spec, patterns)
         execute_write(
             "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, status) VALUES (%s, %s, %s, %s, %s)",
-            (request_id, json.dumps({"files": blueprint.get("files", [])}), blueprint.get("class_design", ""), blueprint.get("rationale", ""), "approved")
+            (request_id, json.dumps({"files": blueprint.get("files", [])}), blueprint.get("class_design", ""), blueprint.get("rationale", ""), "draft" if draft_mode else "approved")
         )
-        write_audit(request_id, "Blueprint Agent", "Design", "Patterns & Spec", "Blueprint generated and auto-approved for run")
+        write_audit(request_id, "Blueprint Agent", "Design", "Patterns & Spec", "Blueprint generated")
         
+        if draft_mode:
+            execute_write("UPDATE generation_requests SET status='blueprint_review' WHERE id=%s", (request_id,))
+            update_job_status(job_id, 'completed', 'Blueprint', 'Pipeline paused for manual blueprint review')
+            return
+                    
         # 5. Generation Agent
         update_job_status(job_id, 'running', 'Generation', 'Rendering Jinja2 templates')
         generated_files, updated_blueprint = generate_code(request_id, blueprint, spec, req['package_name'], req['application_id'])
@@ -120,8 +125,8 @@ def run_pipeline(request_id, job_id):
         update_job_status(job_id, 'failed', 'Error', f"Exception: {str(e)}")
         write_audit(request_id, "Orchestrator", "Execute", "Pipeline", "Failed", str(e))
 
-def start_pipeline_thread(request_id):
+def start_pipeline_thread(request_id, draft_mode=False):
     job_id = execute_write("INSERT INTO pipeline_jobs (request_id) VALUES (%s)", (request_id,))
-    t = threading.Thread(target=run_pipeline, args=(request_id, job_id))
+    t = threading.Thread(target=run_pipeline, args=(request_id, job_id, draft_mode))
     t.start()
     return job_id

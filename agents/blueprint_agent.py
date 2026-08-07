@@ -10,10 +10,10 @@ def generate_blueprint(spec, patterns):
     """
     prompt = f"""
     Design a Kafka Streams application based on these specs:
-    {json.dumps(spec)}
+    {json.dumps(spec, default=str)}
     
     Consider these retrieved patterns/standards:
-    {json.dumps(patterns)}
+    {json.dumps(patterns, default=str)}
     
     Produce a JSON response with exactly this structure:
     {{

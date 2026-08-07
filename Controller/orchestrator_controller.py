@@ -8,10 +8,11 @@ orchestrator_bp = Blueprint('orchestrator', __name__)
 def run():
     data = request.json
     req_id = data.get('request_id')
+    draft_mode = data.get('draft_mode', False)
     if not req_id:
         return jsonify({"success": False, "message": "request_id required"}), 400
         
-    job_id = start_pipeline_thread(req_id)
+    job_id = start_pipeline_thread(req_id, draft_mode)
     return jsonify({"success": True, "data": {"job_id": job_id}})
 
 @orchestrator_bp.route('/status/<int:job_id>', methods=['GET'])

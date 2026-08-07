@@ -10,7 +10,7 @@ def retrieve_patterns(generation_spec):
     """
     try:
         vector_store = VectorStore()
-        query_text = json.dumps(generation_spec)
+        query_text = json.dumps(generation_spec, default=str)
         results = vector_store.query(query_text, top_k=5)
         
         matches = []

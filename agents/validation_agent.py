@@ -79,7 +79,7 @@ def validate_package(request_id, application_id, package_dir, files_manifest, sp
     })
     
     # LLM summary
-    summary_prompt = f"Summarize these validation results for a developer:\n{json.dumps(results)}"
+    summary_prompt = f"Summarize these validation results for a developer:\n{json.dumps(results, default=str)}"
     summary = call_llm(summary_prompt)
     
     return results, summary

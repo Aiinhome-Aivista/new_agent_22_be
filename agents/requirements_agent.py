@@ -20,7 +20,7 @@ def normalize_requirements(req_data):
     - error_topic_policy (string)
     
     Requirements:
-    {json.dumps(req_data)}
+    {json.dumps(req_data, default=str)}
     
     Respond ONLY with valid JSON.
     """
