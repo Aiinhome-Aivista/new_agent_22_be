@@ -1,8 +1,10 @@
 from flask import Blueprint, request, jsonify, send_file
 from db import execute_query, execute_write
 from config import PACKAGE_OUTPUT_DIR
+from agents.packaging_agent import generate_packaging_scripts
 import os
 import zipfile
+import json
 
 packaging_bp = Blueprint('packaging', __name__)
 
@@ -50,3 +52,74 @@ def download(pkg_id):
     if not pkg or not os.path.exists(pkg[0]['zip_path']):
         return jsonify({"success": False, "message": "Not found"}), 404
     return send_file(pkg[0]['zip_path'], as_attachment=True)
+
+@packaging_bp.route('/generate-scripts', methods=['POST'])
+def generate_scripts():
+    data = request.json
+    req_id = data.get('request_id')
+    env_name = data.get('env_name', 'dev')
+    
+    if not req_id:
+        return jsonify({"success": False, "message": "request_id required"}), 400
+        
+    # Get Spec
+    spec_rows = execute_query("SELECT * FROM generation_specs WHERE request_id = %s", (req_id,))
+    if not spec_rows:
+        return jsonify({"success": False, "message": "Spec not found"}), 404
+    spec = spec_rows[0]
+    
+    # Get Env Config
+    env_rows = execute_query("SELECT config_json FROM environment_configs WHERE env_name = %s", (env_name,))
+    if not env_rows:
+        return jsonify({"success": False, "message": "Environment config not found"}), 404
+    
+    try:
+        env_config = json.loads(env_rows[0]['config_json'])
+    except:
+        env_config = {}
+        
+    # Get Java Files
+    java_files = execute_query("SELECT file_name FROM generated_files WHERE request_id = %s", (req_id,))
+    
+    # Call AI Agent
+    scripts = generate_packaging_scripts(spec, env_config, java_files)
+    
+    # Save files to disk and DB
+    out_dir = os.path.join(PACKAGE_OUTPUT_DIR, str(req_id))
+    os.makedirs(out_dir, exist_ok=True)
+    
+    for filename, content in [('pom.xml', scripts.get('pom_xml', '')), 
+                              ('Dockerfile', scripts.get('dockerfile', '')), 
+                              ('deployment.yaml', scripts.get('deployment_yaml', ''))]:
+        
+        file_path = os.path.join(out_dir, filename)
+        with open(file_path, 'w') as f:
+            f.write(content)
+            
+        # Update or insert into generated_files
+        existing = execute_query("SELECT id FROM generated_files WHERE request_id = %s AND file_name = %s", (req_id, filename))
+        if not existing:
+            execute_write(
+                "INSERT INTO generated_files (request_id, file_name, file_path, file_type) VALUES (%s, %s, %s, %s)",
+                (req_id, filename, file_path, 'yaml' if filename.endswith('.yaml') else 'xml')
+            )
+            
+    return jsonify({"success": True, "message": "Scripts generated successfully", "data": scripts})
+
+@packaging_bp.route('/trigger-pipeline', methods=['POST'])
+def trigger_pipeline():
+    data = request.json
+    req_id = data.get('request_id')
+    env_name = data.get('env_name', 'dev')
+    
+    if not req_id:
+        return jsonify({"success": False, "message": "request_id required"}), 400
+        
+    execute_write("UPDATE generation_requests SET status='packaged' WHERE id=%s", (req_id,))
+    
+    # Simulate a pipeline run log
+    return jsonify({
+        "success": True, 
+        "message": f"Pipeline triggered for {env_name.upper()}",
+        "log": f"Started deployment to {env_name.upper()} namespace...\\nBuilding docker image...\\nPushing to registry...\\nApplying deployment.yaml...\\nSuccess!"
+    })
