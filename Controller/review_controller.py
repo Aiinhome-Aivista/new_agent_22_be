@@ -30,3 +30,22 @@ def add_review():
 def get_reviews(req_id):
     reviews = execute_query("SELECT * FROM reviews WHERE request_id=%s ORDER BY created_at DESC", (req_id,))
     return jsonify({"success": True, "data": reviews})
+
+
+@review_bp.route('/queue', methods=['GET'])
+def get_review_queue():
+    requests = execute_query("""
+        SELECT
+            gr.id,
+            gr.application_id,
+            gr.status,
+            gr.created_at
+        FROM generation_requests gr
+        WHERE gr.status = 'validated'
+        ORDER BY gr.created_at DESC
+    """)
+
+    return jsonify({
+        "success": True,
+        "data": requests
+    })

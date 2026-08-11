@@ -123,6 +123,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
                         arcname = os.path.relpath(file_path, out_dir)
                         zipf.write(file_path, arcname)
                         
+            execute_write("DELETE FROM packages WHERE request_id=%s", (request_id,))
             execute_write(
                 "INSERT INTO packages (request_id, zip_path, validation_summary) VALUES (%s, %s, %s)",
                 (request_id, zip_path, val_summary)

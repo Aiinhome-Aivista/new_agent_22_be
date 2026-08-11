@@ -38,5 +38,5 @@ def run_validation():
 
 @validation_bp.route('/request/<int:req_id>', methods=['GET'])
 def get_validation(req_id):
-    results = execute_query("SELECT * FROM validation_results WHERE request_id=%s", (req_id,))
+    results = execute_query("SELECT * FROM validation_results WHERE request_id=%s ORDER BY id ASC", (req_id,))
     return jsonify({"success": True, "data": results})
