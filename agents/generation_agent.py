@@ -41,6 +41,11 @@ def generate_code(request_id, blueprint, spec, package_name, application_id):
         elif fname.endswith("Supplier.java"):
             context["supplier_class_name"] = fname.replace(".java", "")
             
+    # Ensure README.md is always included in generated files
+    filenames = [f.get("filename", "") for f in blueprint.get("files", [])]
+    if "README.md" not in filenames:
+        blueprint.get("files", []).append({"filename": "README.md", "purpose": "Documentation for microservice", "status": "planned"})
+
     # Render files
     for file_info in blueprint.get("files", []):
         filename = file_info.get("filename")
@@ -72,9 +77,11 @@ def generate_code(request_id, blueprint, spec, package_name, application_id):
                 # Determine subfolder
                 subfolder = ""
                 if filename.endswith(".java"):
-                    subfolder = os.path.join("src", "main", "java", "com", "digiconfx", "kafka", package_name)
+                    pkg_parts = package_name.split(".")
+                    subfolder = os.path.join("src", "main", "java", *pkg_parts)
                     if "Test" in filename:
-                        subfolder = os.path.join("src", "test", "java", "com", "digiconfx", "kafka", package_name)
+                        subfolder = os.path.join("src", "test", "java", *pkg_parts)
+
                 
                 full_dir = os.path.join(out_dir, subfolder)
                 os.makedirs(full_dir, exist_ok=True)
@@ -94,5 +101,24 @@ def generate_code(request_id, blueprint, spec, package_name, application_id):
                 
             except Exception as e:
                 logger.error(f"Error generating {filename}: {e}")
-                
+
+    # Ensure README.md is always rendered on disk
+    readme_path = os.path.join(out_dir, "README.md")
+    if not os.path.exists(readme_path):
+        try:
+            template = env.get_template("README.md.j2")
+            content = template.render(context)
+            with open(readme_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            if not any(gf['file_name'] == 'README.md' for gf in generated_files):
+                generated_files.append({
+                    "file_name": "README.md",
+                    "file_path": readme_path,
+                    "file_type": "md"
+                })
+        except Exception as e:
+            logger.error(f"Error rendering README.md: {e}")
+
     return generated_files, blueprint
+
+

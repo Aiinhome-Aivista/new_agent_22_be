@@ -52,7 +52,7 @@ def validate_package(request_id, application_id, package_dir, files_manifest, sp
     })
     
     # 5. README exists
-    readme_exists = any(f["filename"] == "README.md" for f in files_manifest)
+    readme_exists = any(f.get("filename") == "README.md" for f in files_manifest) or os.path.exists(os.path.join(package_dir, "README.md"))
     results.append({
         "rule_name": "README exists",
         "passed": readme_exists,

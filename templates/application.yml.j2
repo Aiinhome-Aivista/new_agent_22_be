@@ -2,6 +2,11 @@ spring:
   cloud:
     stream:
       kafka:
+        bindings:
+          process-in-0:
+            consumer:
+              enableDlq: true
+              dlqName: {{ source_topics }}-dlq
         streams:
           binder:
             application-id: {{ application_id }}
@@ -18,3 +23,6 @@ spring:
           group: {{ consumer_group }}
         process-out-0:
           destination: {{ target_topics }}
+        dlq-out-0:
+          destination: {{ source_topics }}-dlq
+

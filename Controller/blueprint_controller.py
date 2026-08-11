@@ -35,8 +35,14 @@ def generate():
 def approve(bp_id):
     res = execute_write("UPDATE blueprints SET status='approved' WHERE id=%s", (bp_id,))
     if res is not None:
-        return jsonify({"success": True, "message": "Blueprint approved"})
+        bps = execute_query("SELECT request_id FROM blueprints WHERE id=%s", (bp_id,))
+        if bps:
+            req_id = bps[0]['request_id']
+            from agents.orchestrator_agent import start_pipeline_thread
+            start_pipeline_thread(req_id, draft_mode=False)
+        return jsonify({"success": True, "message": "Blueprint approved and generation pipeline started"})
     return jsonify({"success": False, "message": "Update failed"}), 500
+
 
 @blueprint_bp.route('/request/<int:req_id>', methods=['GET'])
 def get_blueprint(req_id):
