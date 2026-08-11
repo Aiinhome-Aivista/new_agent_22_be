@@ -16,9 +16,8 @@ def add_review():
         (req_id, data.get('reviewer_name', 'Anonymous'), decision, data.get('comments', ''))
     )
     
-    # Update request status
     if decision == 'rework':
-        # Re-open blueprint step
+        
         execute_write("UPDATE generation_requests SET status='rework' WHERE id=%s", (req_id,))
         execute_write("UPDATE blueprints SET status='draft' WHERE request_id=%s", (req_id,))
     else:
@@ -26,7 +25,26 @@ def add_review():
         
     return jsonify({"success": True, "message": "Review recorded"})
 
+
 @review_bp.route('/request/<int:req_id>', methods=['GET'])
 def get_reviews(req_id):
     reviews = execute_query("SELECT * FROM reviews WHERE request_id=%s ORDER BY created_at DESC", (req_id,))
     return jsonify({"success": True, "data": reviews})
+
+@review_bp.route('/queue', methods=['GET'])
+def get_review_queue():
+    requests = execute_query("""
+        SELECT
+            gr.id,
+            gr.application_id,
+            gr.status,
+            gr.created_at
+        FROM generation_requests gr
+        WHERE gr.status = 'validated'
+        ORDER BY gr.created_at DESC
+    """)
+
+    return jsonify({
+        "success": True,
+        "data": requests
+    })
