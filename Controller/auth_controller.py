@@ -74,7 +74,7 @@ def login():
             ],
             'devops': [
                 {'name': 'Dashboard', 'path': '/devops/dashboard', 'icon': 'ChartBarIcon'},
-                {'name': 'Packaging', 'path': '/packaging', 'icon': 'CubeIcon'},
+                {'name': 'Packaging', 'path': '/packages', 'icon': 'CubeIcon'},
                 {'name': 'Environment', 'path': '/environment', 'icon': 'ServerIcon'},
                 {'name': 'Configuration', 'path': '/config', 'icon': 'CogIcon'},
                 {'name': 'Deployment', 'path': '/deploy', 'icon': 'RocketLaunchIcon'},
