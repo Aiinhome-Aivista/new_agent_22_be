@@ -20,6 +20,7 @@ try:
     from Controller.audit_controller import audit_bp
     from Controller.auth_controller import auth_bp
     from Controller.dashboard_controller import dashboard_bp
+    from Controller.standards_controller import standards_bp
 except ImportError as e:
     logging.warning(f"Failed to import controllers initially (they may not exist yet): {e}")
 
@@ -40,6 +41,7 @@ try:
     app.register_blueprint(audit_bp, url_prefix="/api/audit")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
+    app.register_blueprint(standards_bp, url_prefix="/api/standards")
 except NameError as e:
     logging.warning("Some blueprints were not registered because they are not yet created.")
 

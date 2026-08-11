@@ -23,10 +23,12 @@ def generate():
     file_manifest = json.dumps({"files": blueprint.get("files", [])})
     class_design = blueprint.get("class_design", "")
     rationale = blueprint.get("rationale", "")
+    alternative_designs = json.dumps(blueprint.get("alternative_designs", []))
+    assumptions = json.dumps(blueprint.get("assumptions", []))
     
     execute_write(
-        "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, status) VALUES (%s, %s, %s, %s, 'draft')",
-        (req_id, file_manifest, class_design, rationale)
+        "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, alternative_designs, assumptions, status) VALUES (%s, %s, %s, %s, %s, %s, 'draft')",
+        (req_id, file_manifest, class_design, rationale, alternative_designs, assumptions)
     )
     
     return jsonify({"success": True, "data": blueprint})
@@ -38,10 +40,21 @@ def approve(bp_id):
         return jsonify({"success": True, "message": "Blueprint approved"})
     return jsonify({"success": False, "message": "Update failed"}), 500
 
+@blueprint_bp.route('/<int:bp_id>/rework', methods=['PUT'])
+def rework(bp_id):
+    data = request.json
+    comments = data.get('comments', '')
+    res = execute_write("UPDATE blueprints SET status='rework', comments=%s WHERE id=%s", (comments, bp_id))
+    if res is not None:
+        return jsonify({"success": True, "message": "Blueprint marked for rework"})
+    return jsonify({"success": False, "message": "Update failed"}), 500
+
 @blueprint_bp.route('/request/<int:req_id>', methods=['GET'])
 def get_blueprint(req_id):
     bp = execute_query("SELECT * FROM blueprints WHERE request_id=%s ORDER BY created_at DESC LIMIT 1", (req_id,))
     if not bp:
         return jsonify({"success": False, "message": "Not found"}), 404
     bp[0]['file_manifest'] = json.loads(bp[0]['file_manifest']) if bp[0]['file_manifest'] else {"files": []}
+    bp[0]['alternative_designs'] = json.loads(bp[0]['alternative_designs']) if bp[0]['alternative_designs'] else []
+    bp[0]['assumptions'] = json.loads(bp[0]['assumptions']) if bp[0]['assumptions'] else []
     return jsonify({"success": True, "data": bp[0]})
