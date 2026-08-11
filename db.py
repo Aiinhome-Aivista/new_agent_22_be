@@ -39,8 +39,9 @@ def execute_query(query, params=None):
         logger.error(f"Error executing query: {e}")
         return []
     finally:
-        if conn.is_connected():
-            cursor.close()
+        if conn and conn.is_connected():
+            if 'cursor' in locals() and cursor is not None:
+                cursor.close()
             conn.close()
 
 def execute_write(query, params=None):
@@ -59,6 +60,7 @@ def execute_write(query, params=None):
         conn.rollback()
         return None
     finally:
-        if conn.is_connected():
-            cursor.close()
+        if conn and conn.is_connected():
+            if 'cursor' in locals() and cursor is not None:
+                cursor.close()
             conn.close()

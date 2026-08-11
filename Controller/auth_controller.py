@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from db import get_connection
+from db import get_connection, execute_query
 import uuid
 import bcrypt
 
@@ -14,14 +14,8 @@ def login():
     if not email or not password:
         return jsonify({"success": False, "message": "Email and password required"}), 400
         
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    cursor.execute("SELECT id, name, role, email, password, description FROM users WHERE email = %s", (email,))
-    user = cursor.fetchone()
-    
-    cursor.close()
-    conn.close()
+    users = execute_query("SELECT id, name, role, email, password, description FROM users WHERE email = %s", (email,))
+    user = users[0] if users else None
     
     if user and bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
         del user['password'] # Remove encrypted password before returning to client
@@ -108,13 +102,6 @@ def login():
         
 @auth_bp.route('/personas', methods=['GET'])
 def get_personas():
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    cursor.execute("SELECT email, role, name, description FROM users")
-    users = cursor.fetchall()
-    
-    cursor.close()
-    conn.close()
+    users = execute_query("SELECT email, role, name, description FROM users")
     
     return jsonify({"success": True, "data": users})
