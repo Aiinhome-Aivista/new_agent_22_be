@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify
+import json
+from flask import Blueprint, request, jsonify, Response
 from db import execute_query, execute_write
 
 techlead_bp = Blueprint('techlead', __name__)
@@ -96,3 +97,80 @@ def signoff_review():
     execute_write("UPDATE generation_requests SET status=%s WHERE id=%s", (decision, request_id))
     
     return jsonify({"success": True, "message": f"Sign-off recorded as {decision}"})
+
+@techlead_bp.route('/reports/summary', methods=['GET'])
+def get_reports_summary():
+    # 1. total_passed: Count of requests with NO failed/warning validations
+    # (Simplified: requests in packaged/approved state that have no error records)
+    total_reqs = execute_query("SELECT id FROM generation_requests WHERE status IN ('validated', 'packaged', 'approved')")
+    total_passed = 0
+    for req in total_reqs:
+        errors = execute_query("SELECT id FROM validation_results WHERE request_id=%s AND passed=0", (req['id'],))
+        if not errors:
+            total_passed += 1
+
+    # 2. warnings_and_waivers: count of validation_results with severity in ('warning','info') or status='WAIVED'
+    res = execute_query("SELECT COUNT(*) as count FROM validation_results WHERE severity IN ('warning','info') OR status='WAIVED'")
+    warnings = res[0]['count'] if res else 0
+
+    # 3. critical_failures: count of OPEN error severity issues
+    res2 = execute_query("SELECT COUNT(*) as count FROM validation_results WHERE severity='error' AND (status='OPEN' OR status IS NULL)")
+    critical = res2[0]['count'] if res2 else 0
+
+    return jsonify({
+        "success": True, 
+        "data": {
+            "total_passed": total_passed,
+            "warnings_and_waivers": warnings,
+            "critical_failures": critical
+        }
+    })
+
+@techlead_bp.route('/reports', methods=['GET'])
+def get_reports_list():
+    # Fetch completed or packaged generation requests as reports
+    query = """
+        SELECT id, request_name as title, application_id, 'JSON' as type, created_at as date
+        FROM generation_requests
+        WHERE status IN ('validated', 'packaged', 'approved')
+        ORDER BY created_at DESC
+    """
+    results = execute_query(query)
+    
+    for row in results:
+        # Mocking size for UI
+        row['size'] = f"{100 + (row['id'] * 15)} KB"
+        # Format date for UI
+        if row['date']:
+            row['date'] = row['date'].strftime('%Y-%m-%d')
+            
+    return jsonify({"success": True, "data": results})
+
+@techlead_bp.route('/reports/download/<int:report_id>', methods=['GET'])
+def download_report(report_id):
+    # Fetch full data to construct a JSON report
+    req = execute_query("SELECT * FROM generation_requests WHERE id=%s", (report_id,))
+    if not req:
+        return jsonify({"success": False, "message": "Report not found"}), 404
+        
+    spec = execute_query("SELECT * FROM generation_specs WHERE request_id=%s", (report_id,))
+    validations = execute_query("SELECT * FROM validation_results WHERE request_id=%s", (report_id,))
+    
+    report_data = {
+        "report_metadata": {
+            "id": report_id,
+            "generated_on": str(req[0]['created_at']),
+            "title": f"Audit Report for {req[0]['request_name']}"
+        },
+        "request_details": req[0],
+        "specification": spec[0] if spec else {},
+        "validations": validations or []
+    }
+    
+    json_data = json.dumps(report_data, default=str, indent=4)
+    
+    return Response(
+        json_data,
+        mimetype="application/json",
+        headers={"Content-disposition": f"attachment; filename=audit_report_{report_id}.json"}
+    )
