@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS generation_specs (
     state_store_needed BOOLEAN DEFAULT FALSE,
     error_topic_policy VARCHAR(255),
     schema_hints TEXT,
+    sample_file_path VARCHAR(512),
     normalized_by ENUM('ai','manual'),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (request_id) REFERENCES generation_requests(id) ON DELETE CASCADE,
