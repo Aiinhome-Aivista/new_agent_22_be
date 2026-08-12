@@ -50,4 +50,26 @@ def get_requirement(req_id):
     if not req:
         return jsonify({"success": False, "message": "Not found"}), 404
     spec = execute_query("SELECT * FROM generation_specs WHERE request_id=%s", (req_id,))
-    return jsonify({"success": True, "data": {"request": req[0], "spec": spec[0] if spec else None}})
+    bp = execute_query("SELECT * FROM blueprints WHERE request_id=%s ORDER BY id DESC LIMIT 1", (req_id,))
+    job = execute_query("SELECT * FROM pipeline_jobs WHERE request_id=%s ORDER BY id DESC LIMIT 1", (req_id,))
+    val_rows = execute_query("SELECT * FROM validation_results WHERE request_id=%s", (req_id,))
+    
+    has_errors = any(v['severity'] == 'error' and not v['passed'] for v in val_rows) if val_rows else False
+    has_warnings = any(v['severity'] == 'warning' and not v['passed'] for v in val_rows) if val_rows else False
+
+    return jsonify({
+        "success": True, 
+        "data": {
+            "request": req[0], 
+            "spec": spec[0] if spec else None,
+            "blueprint": bp[0] if bp else None,
+            "job": job[0] if job else None,
+            "validation_summary": {
+                "results": val_rows,
+                "has_errors": has_errors,
+                "has_warnings": has_warnings,
+                "count": len(val_rows)
+            }
+        }
+    })
+

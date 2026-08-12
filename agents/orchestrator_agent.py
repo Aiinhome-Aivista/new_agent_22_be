@@ -56,18 +56,31 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         write_audit(request_id, "Pattern Retrieval", "Retrieve", "Spec", f"Found {len(patterns)} patterns")
         
         # 4. Blueprint Agent
-        update_job_status(job_id, 'running', 'Blueprint', 'Generating file manifest and class design')
-        blueprint = generate_blueprint(spec, patterns)
-        execute_write(
-            "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, status) VALUES (%s, %s, %s, %s, %s)",
-            (request_id, json.dumps({"files": blueprint.get("files", [])}), blueprint.get("class_design", ""), blueprint.get("rationale", ""), "draft" if draft_mode else "approved")
-        )
-        write_audit(request_id, "Blueprint Agent", "Design", "Patterns & Spec", "Blueprint generated")
+        update_job_status(job_id, 'running', 'Blueprint', 'Checking or generating file manifest and class design')
+        existing_bps = execute_query("SELECT * FROM blueprints WHERE request_id=%s ORDER BY id DESC LIMIT 1", (request_id,))
+        if existing_bps:
+            bp_row = existing_bps[0]
+            manifest_obj = json.loads(bp_row['file_manifest']) if bp_row['file_manifest'] else {}
+            blueprint = {
+                "files": manifest_obj.get("files", []),
+                "class_design": bp_row['class_design'],
+                "rationale": bp_row['generated_rationale']
+            }
+            if bp_row['status'] == 'approved':
+                draft_mode = False
+        else:
+            blueprint = generate_blueprint(spec, patterns)
+            execute_write(
+                "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, status) VALUES (%s, %s, %s, %s, %s)",
+                (request_id, json.dumps({"files": blueprint.get("files", [])}), blueprint.get("class_design", ""), blueprint.get("rationale", ""), "draft" if draft_mode else "approved")
+            )
+        write_audit(request_id, "Blueprint Agent", "Design", "Patterns & Spec", "Blueprint ready")
         
         if draft_mode:
             execute_write("UPDATE generation_requests SET status='blueprint_review' WHERE id=%s", (request_id,))
             update_job_status(job_id, 'completed', 'Blueprint', 'Pipeline paused for manual blueprint review')
             return
+
                     
         # 5. Generation Agent
         update_job_status(job_id, 'running', 'Generation', 'Rendering Jinja2 templates')
@@ -83,7 +96,9 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         # 6. Validation Agent
         update_job_status(job_id, 'running', 'Validation', 'Running validation rules')
         out_dir = os.path.join(PACKAGE_OUTPUT_DIR, str(request_id))
+        execute_write("DELETE FROM validation_results WHERE request_id=%s", (request_id,))
         val_results, val_summary = validate_package(request_id, req['application_id'], out_dir, updated_blueprint.get("files", []), spec)
+
         
         has_errors = False
         for vr in val_results:
@@ -108,6 +123,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
                         arcname = os.path.relpath(file_path, out_dir)
                         zipf.write(file_path, arcname)
                         
+            execute_write("DELETE FROM packages WHERE request_id=%s", (request_id,))
             execute_write(
                 "INSERT INTO packages (request_id, zip_path, validation_summary) VALUES (%s, %s, %s)",
                 (request_id, zip_path, val_summary)

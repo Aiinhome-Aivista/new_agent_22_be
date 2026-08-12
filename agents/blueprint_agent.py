@@ -21,7 +21,9 @@ def generate_blueprint(spec, patterns):
         {{ "filename": "OrderProcessor.java", "purpose": "Consumes input", "generated": false, "status": "planned" }}
       ],
       "class_design": "Detailed string about classes and methods...",
-      "rationale": "Why this design was chosen..."
+      "rationale": "Why this design was chosen...",
+      "alternative_designs": ["Alternative option 1...", "Alternative option 2..."],
+      "assumptions": ["Assumed state store because...", "Assumed exact once semantics..."]
     }}
     
     Ensure you include at minimum a Processor, a Handler, and an application.yml.
@@ -47,5 +49,7 @@ def generate_blueprint(spec, patterns):
                 { "filename": "DefaultProcessorTest.java", "purpose": "Tests", "generated": False, "status": "planned" }
             ],
             "class_design": "Default simple layout",
-            "rationale": "Fallback due to LLM parsing error"
+            "rationale": "Fallback due to LLM parsing error",
+            "alternative_designs": ["No alternatives due to error"],
+            "assumptions": ["Fallback design assumption"]
         }
