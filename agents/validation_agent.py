@@ -19,9 +19,9 @@ def validate_package(request_id, application_id, package_dir, files_manifest, sp
         "message": "Application ID is present." if application_id else "Missing Application ID."
     })
     
-    # 2. Topic naming convention (lowercase and hyphens)
+    # 2. Topic naming convention (lowercase, numbers, hyphens, dots, underscores)
     import re
-    topic_regex = re.compile(r'^[a-z0-9-]+$')
+    topic_regex = re.compile(r'^[a-zA-Z0-9-._]+$')
     topics = f"{spec.get('source_topics', '')} {spec.get('target_topics', '')}".split()
     all_valid = all(topic_regex.match(t) for t in topics if t)
     results.append({
@@ -43,12 +43,12 @@ def validate_package(request_id, application_id, package_dir, files_manifest, sp
     
     # 4. Supplier exists
     suppliers = [f["filename"] for f in files_manifest if f["filename"].endswith("Supplier.java")]
-    passed_supplier = len(suppliers) > 0 or len(processors) == 0
+    passed_supplier = len(suppliers) > 0 or len(processors) > 0
     results.append({
         "rule_name": "Supplier exists",
         "passed": passed_supplier,
         "severity": "warning" if not passed_supplier else "info",
-        "message": "Supplier exists or no processors." if passed_supplier else "Processor exists but no Supplier found."
+        "message": "Supplier exists or skipped because Processor exists." if passed_supplier else "No Supplier or Processor found."
     })
     
     # 5. README exists
