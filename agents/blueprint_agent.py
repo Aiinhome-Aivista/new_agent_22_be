@@ -24,10 +24,10 @@ def generate_blueprint(spec, patterns):
       "rationale": "Why this design was chosen...",
       "alternative_designs": ["Alternative option 1...", "Alternative option 2..."],
       "assumptions": ["Assumed state store because...", "Assumed exact once semantics..."],
-      "mermaid_diagram": "A valid Mermaid.js flowchart (graph TD) visualizing the Kafka streams topology. Use standard mermaid formatting without markdown backticks."
+      "mermaid_diagram": "A valid Mermaid.js flowchart (graph TD) visualizing the Kafka streams topology. Strict rules: 1. Source topics at the top. 2. Processors in the middle. 3. Processors must connect horizontally to State Stores using database shapes, e.g. Processor <-->|Queries| Store[(State Store)]. 4. Show conditional branching from the processor to target topics (e.g. Processor -->|Valid| TargetTopic and Processor -->|Error| DLQTopic). Do not just draw a straight line. Use standard mermaid formatting without markdown backticks."
     }}
     
-    Ensure you include at minimum a Processor, a Handler, and an application.yml.
+    Ensure you include ALL necessary files for a full production-ready Spring Boot Kafka Streams microservice. This MUST include at minimum: pom.xml, the main Application.java class, configuration classes, data models/POJOs, the Processor, the Handler, and application.yml.
     Respond ONLY with valid JSON.
     """
     

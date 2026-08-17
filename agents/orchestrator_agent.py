@@ -58,7 +58,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         # 4. Blueprint Agent
         update_job_status(job_id, 'running', 'Blueprint', 'Checking or generating file manifest and class design')
         existing_bps = execute_query("SELECT * FROM blueprints WHERE request_id=%s ORDER BY id DESC LIMIT 1", (request_id,))
-        if existing_bps:
+        if existing_bps and existing_bps[0]['status'] != 'rework':
             bp_row = existing_bps[0]
             manifest_obj = json.loads(bp_row['file_manifest']) if bp_row['file_manifest'] else {}
             blueprint = {
