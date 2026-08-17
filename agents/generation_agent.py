@@ -59,6 +59,12 @@ def generate_code(request_id, blueprint, spec, package_name, application_id):
             template_name = "Handler.java.j2"
         elif filename.endswith("Supplier.java"):
             template_name = "Supplier.java.j2"
+        elif filename == "Application.java":
+            template_name = "Application.java.j2"
+        elif filename.endswith("Config.java"):
+            template_name = "Config.java.j2"
+        elif filename.endswith("Model.java"):
+            template_name = "Model.java.j2"
         elif filename == "application.yml":
             template_name = "application.yml.j2"
         elif filename == "pom.xml" or filename == "pom_snippet.xml":
