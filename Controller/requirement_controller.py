@@ -2,7 +2,8 @@ import os
 from werkzeug.utils import secure_filename
 from flask import Blueprint, request, jsonify
 from db import execute_query, execute_write
-from agents.requirements_agent import normalize_requirements
+from agents.requirements_agent import normalize_requirements, analyze_conversational_intake
+import json
 
 requirement_bp = Blueprint('requirement', __name__)
 
@@ -10,46 +11,124 @@ requirement_bp = Blueprint('requirement', __name__)
 def create_requirement():
     data = dict(request.form) if request.form else (request.json or {})
     
-    # Handle boolean conversion for form data
-    if 'state_store_needed' in data:
-        data['state_store_needed'] = data['state_store_needed'] == 'true' or data['state_store_needed'] is True
+    # In the NLP flow, prompt is passed
+    prompt = data.get('prompt', '')
+    language = data.get('language', 'Java Kafka')
 
-    file_upload = request.files.get('file_upload')
-    sample_file_path = None
+    file_uploads = request.files.getlist('file_upload')
+    saved_file_paths = []
     
-    if file_upload and file_upload.filename:
-        filename = secure_filename(file_upload.filename)
-        upload_dir = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'schemas')
-        os.makedirs(upload_dir, exist_ok=True)
-        sample_file_path = os.path.join(upload_dir, filename)
-        file_upload.save(sample_file_path)
+    upload_dir = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'schemas')
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    for file_upload in file_uploads:
+        if file_upload and file_upload.filename:
+            filename = secure_filename(file_upload.filename)
+            file_path = os.path.join(upload_dir, filename)
+            file_upload.save(file_path)
+            saved_file_paths.append(file_path)
 
     try:
-        # Validate and normalize
-        normalized_spec = normalize_requirements(data)
+        # Use LLM to extract ALL requirements from the unstructured prompt
+        # We pass both the prompt and the file names to the LLM agent for context
+        extract_payload = {
+            'prompt': prompt,
+            'language': language,
+            'attached_files': [os.path.basename(p) for p in saved_file_paths]
+        }
+        normalized_spec = normalize_requirements(extract_payload)
         
         # Save request
         request_id = execute_write(
             "INSERT INTO generation_requests (request_name, application_id, package_name, requested_by) VALUES (%s, %s, %s, %s)",
-            (data.get('request_name', 'Untitled'), data.get('application_id'), data.get('package_name'), data.get('requested_by', 'User'))
+            (normalized_spec.get('request_name', 'NLP Chat Request'), 
+             normalized_spec.get('application_id', 'com.generated.app'), 
+             normalized_spec.get('package_name', 'com.generated.app'), 
+             data.get('requested_by', 'User'))
         )
         
         if not request_id:
             return jsonify({"success": False, "message": "Failed to save request"}), 500
             
         # Save spec
+        # For multiple files, we'll store them as a JSON string in sample_file_path or just the first one if schema doesn't support array.
+        # Assuming sample_file_path is a text/varchar column, we can store JSON array of paths.
+        paths_str = json.dumps(saved_file_paths) if saved_file_paths else None
+        
         execute_write(
             """INSERT INTO generation_specs (request_id, source_topics, target_topics, consumer_group, state_store_needed, error_topic_policy, schema_hints, sample_file_path, normalized_by) 
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (request_id, normalized_spec.get('source_topics'), normalized_spec.get('target_topics'), 
-             normalized_spec.get('consumer_group'), normalized_spec.get('state_store_needed'), 
-             normalized_spec.get('error_topic_policy'), data.get('schema_hints'), sample_file_path, 'ai')
+             normalized_spec.get('consumer_group'), normalized_spec.get('state_store_needed', False), 
+             normalized_spec.get('error_topic_policy', 'DLQ'), prompt, paths_str, 'ai')
         )
         
         return jsonify({"success": True, "data": {"request_id": request_id, "spec": normalized_spec}}), 201
     except ValueError as e:
         return jsonify({"success": False, "message": str(e)}), 400
     except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@requirement_bp.route('/intake-chat', methods=['POST'])
+def intake_chat():
+    messages_str = request.form.get('messages', '[]')
+    try:
+        messages = json.loads(messages_str)
+    except Exception:
+        messages = []
+        
+    language = request.form.get('language', 'Java Kafka')
+    
+    if not messages:
+        return jsonify({"success": False, "message": "No messages provided"}), 400
+        
+    file_uploads = request.files.getlist('file_upload')
+    saved_file_paths = []
+    
+    upload_dir = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'schemas')
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    for file_upload in file_uploads:
+        if file_upload and file_upload.filename:
+            filename = secure_filename(file_upload.filename)
+            file_path = os.path.join(upload_dir, filename)
+            file_upload.save(file_path)
+            saved_file_paths.append(file_path)
+            
+    try:
+        files = [os.path.basename(p) for p in saved_file_paths]
+        result = analyze_conversational_intake(messages, language, files)
+        
+        if result.get('status') == 'complete':
+            req = result.get('requirements', {})
+            # Save request
+            request_id = execute_write(
+                "INSERT INTO generation_requests (request_name, application_id, package_name, requested_by) VALUES (%s, %s, %s, %s)",
+                (req.get('request_name', 'NLP Chat Request'), 
+                 req.get('application_id', 'com.generated.app'), 
+                 req.get('package_name', 'com.generated.app'), 
+                 'User')
+            )
+            
+            # Save spec
+            paths_str = json.dumps(saved_file_paths) if saved_file_paths else None
+            execute_write(
+                """INSERT INTO generation_specs (request_id, source_topics, target_topics, consumer_group, state_store_needed, error_topic_policy, schema_hints, sample_file_path, normalized_by) 
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (request_id, req.get('source_topics'), req.get('target_topics'), 
+                 req.get('consumer_group'), req.get('state_store_needed', False), 
+                 req.get('error_topic_policy', 'DLQ'), "Conversational Intake", paths_str, 'ai')
+            )
+            
+            return jsonify({"success": True, "status": "complete", "data": {"request_id": request_id}})
+        else:
+            return jsonify({"success": True, "status": "more_info", "question": result.get('question', "Can you provide more details?")})
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "message": str(e)}), 500
 
 @requirement_bp.route('/', methods=['GET'])

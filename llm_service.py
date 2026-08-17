@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 def call_llm(prompt, stream=False):
     payload = {"model": LLM_MODEL, "prompt": prompt, "stream": stream}
     try:
-        response = requests.post(LLM_API_URL, json=payload, timeout=120)
+        response = requests.post(LLM_API_URL, json=payload, timeout=300)
         response.raise_for_status()
         data = response.json()
         return data.get("response", "")

@@ -23,7 +23,8 @@ def generate_blueprint(spec, patterns):
       "class_design": "Detailed string about classes and methods...",
       "rationale": "Why this design was chosen...",
       "alternative_designs": ["Alternative option 1...", "Alternative option 2..."],
-      "assumptions": ["Assumed state store because...", "Assumed exact once semantics..."]
+      "assumptions": ["Assumed state store because...", "Assumed exact once semantics..."],
+      "mermaid_diagram": "A valid Mermaid.js flowchart (graph TD) visualizing the Kafka streams topology. Use standard mermaid formatting without markdown backticks."
     }}
     
     Ensure you include at minimum a Processor, a Handler, and an application.yml.
@@ -51,5 +52,6 @@ def generate_blueprint(spec, patterns):
             "class_design": "Default simple layout",
             "rationale": "Fallback due to LLM parsing error",
             "alternative_designs": ["No alternatives due to error"],
-            "assumptions": ["Fallback design assumption"]
+            "assumptions": ["Fallback design assumption"],
+            "mermaid_diagram": "graph TD;\n  A[Input] --> B[Processor];\n  B --> C[Output];"
         }

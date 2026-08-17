@@ -64,15 +64,16 @@ def run_pipeline(request_id, job_id, draft_mode=False):
             blueprint = {
                 "files": manifest_obj.get("files", []),
                 "class_design": bp_row['class_design'],
-                "rationale": bp_row['generated_rationale']
+                "rationale": bp_row['generated_rationale'],
+                "mermaid_diagram": bp_row.get('mermaid_diagram', '')
             }
             if bp_row['status'] == 'approved':
                 draft_mode = False
         else:
             blueprint = generate_blueprint(spec, patterns)
             execute_write(
-                "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, status) VALUES (%s, %s, %s, %s, %s)",
-                (request_id, json.dumps({"files": blueprint.get("files", [])}), blueprint.get("class_design", ""), blueprint.get("rationale", ""), "draft" if draft_mode else "approved")
+                "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, mermaid_diagram, status) VALUES (%s, %s, %s, %s, %s, %s)",
+                (request_id, json.dumps({"files": blueprint.get("files", [])}), blueprint.get("class_design", ""), blueprint.get("rationale", ""), blueprint.get("mermaid_diagram", ""), "draft" if draft_mode else "approved")
             )
         write_audit(request_id, "Blueprint Agent", "Design", "Patterns & Spec", "Blueprint ready")
         
