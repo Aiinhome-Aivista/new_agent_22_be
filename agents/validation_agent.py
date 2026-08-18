@@ -22,7 +22,8 @@ def validate_package(request_id, application_id, package_dir, files_manifest, sp
     # 2. Topic naming convention (lowercase, numbers, hyphens, dots, underscores)
     import re
     topic_regex = re.compile(r'^[a-zA-Z0-9-._]+$')
-    topics = f"{spec.get('source_topics', '')} {spec.get('target_topics', '')}".split()
+    topics_str = f"{spec.get('source_topics', '')} {spec.get('target_topics', '')}"
+    topics = topics_str.replace(',', ' ').split()
     all_valid = all(topic_regex.match(t) for t in topics if t)
     results.append({
         "rule_name": "Topic naming convention",

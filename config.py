@@ -15,8 +15,9 @@ LLM_API_URL = os.getenv("LLM_API_URL", "http://122.163.121.176:3041/api/generate
 LLM_MODEL = os.getenv("LLM_MODEL", "mistral-small:24b")
 
 # Internal Configs
-CHROMA_PERSIST_DIR = "./chroma_store"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CHROMA_PERSIST_DIR = os.path.join(BASE_DIR, "chroma_store")
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-PACKAGE_OUTPUT_DIR = "./generated_packages"
+PACKAGE_OUTPUT_DIR = os.path.join(BASE_DIR, "generated_packages")
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-agent-22-key")
 FLASK_DEBUG = True
