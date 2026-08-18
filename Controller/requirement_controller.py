@@ -119,7 +119,7 @@ def intake_chat():
                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 (request_id, req.get('source_topics'), req.get('target_topics'), 
                  req.get('consumer_group'), req.get('state_store_needed', False), 
-                 req.get('error_topic_policy', 'DLQ'), "Conversational Intake", paths_str, 'ai')
+                 req.get('error_topic_policy', 'DLQ'), json.dumps(messages), paths_str, 'ai')
             )
             
             return jsonify({"success": True, "status": "complete", "data": {"request_id": request_id}})
