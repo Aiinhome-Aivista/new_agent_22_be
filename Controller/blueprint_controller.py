@@ -40,6 +40,7 @@ def approve(bp_id):
         bps = execute_query("SELECT request_id FROM blueprints WHERE id=%s", (bp_id,))
         if bps:
             req_id = bps[0]['request_id']
+            execute_write("UPDATE generation_requests SET status='in_progress' WHERE id=%s", (req_id,))
             from agents.orchestrator_agent import start_pipeline_thread
             start_pipeline_thread(req_id, draft_mode=False)
         return jsonify({"success": True, "message": "Blueprint approved and generation pipeline started"})
