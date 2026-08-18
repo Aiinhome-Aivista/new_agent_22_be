@@ -5,6 +5,16 @@ from config import LLM_API_URL, LLM_MODEL
 
 logger = logging.getLogger(__name__)
 
+def load_prompt(prompt_name, **kwargs):
+    prompt_path = os.path.join(os.path.dirname(__file__), "prompts", f"{prompt_name}.txt")
+    try:
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            template = f.read()
+        return template.format(**kwargs)
+    except Exception as e:
+        logger.error(f"Error loading prompt {prompt_name}: {e}")
+        return ""
+
 def call_llm(prompt, stream=False):
     payload = {"model": LLM_MODEL, "prompt": prompt, "stream": stream}
     try:

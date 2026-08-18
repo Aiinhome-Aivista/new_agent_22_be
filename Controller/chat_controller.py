@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from db import execute_query, execute_write
-from llm_service import call_llm
+from llm_service import call_llm, load_prompt
 from rag.vector_store import VectorStore
 import json
 
@@ -45,7 +45,7 @@ def ask():
     except Exception as e:
         print(f"RAG query failed: {e}")
             
-    prompt = f"{role_instruction}\n\nContext:\n{context}\n\nQuestion: {question}"
+    prompt = load_prompt("chat_prompt", role_instruction=role_instruction, context=context, question=question)
     answer = call_llm(prompt)
     
     execute_write(

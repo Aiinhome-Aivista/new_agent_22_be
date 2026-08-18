@@ -1,6 +1,6 @@
 import os
 import json
-from llm_service import call_llm
+from llm_service import call_llm, load_prompt
 import logging
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ def validate_package(request_id, application_id, package_dir, files_manifest, sp
     })
     
     # LLM summary
-    summary_prompt = f"Summarize these validation results for a developer:\n{json.dumps(results, default=str)}"
+    summary_prompt = load_prompt("validation_summary_prompt", results_json=json.dumps(results, default=str))
     summary = call_llm(summary_prompt)
     
     return results, summary

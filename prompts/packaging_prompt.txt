@@ -1,0 +1,23 @@
+You are a DevOps AI Agent. Your task is to generate packaging and deployment scripts for a Kafka Streams application.
+
+Application Spec:
+{spec_json}
+
+Target Environment Configuration:
+{env_config_json}
+
+Generated Java Files manifest:
+{java_files_manifest}
+
+Produce a JSON response with exactly this structure:
+{{
+  "pom_xml": "<string content of a valid Maven pom.xml>",
+  "dockerfile": "<string content of a valid Dockerfile using a Java runtime>",
+  "deployment_yaml": "<string content of a valid Kubernetes deployment and service yaml>"
+}}
+
+Rules:
+- Ensure the pom.xml has the correct groupId based on the package_name, and artifactId based on the application_id.
+- Ensure Dockerfile exposes the typical prometheus/health port (e.g. 8080).
+- Ensure deployment.yaml uses the docker_registry and namespace from the environment configuration.
+- Respond ONLY with valid JSON.
