@@ -1,4 +1,5 @@
 import os
+import re
 from werkzeug.utils import secure_filename
 from flask import Blueprint, request, jsonify
 from db import execute_query, execute_write
@@ -6,6 +7,15 @@ from agents.requirements_agent import normalize_requirements, analyze_conversati
 import json
 
 requirement_bp = Blueprint('requirement', __name__)
+
+def derive_app_and_package_id(request_name, app_id=None, pkg_name=None):
+    clean_slug = re.sub(r'[^a-zA-Z0-9]', '', request_name or '').lower() or 'app'
+    default_id = f"com.company.{clean_slug}"
+    
+    final_app_id = app_id.strip() if (app_id and isinstance(app_id, str) and app_id.strip()) else default_id
+    final_pkg_name = pkg_name.strip() if (pkg_name and isinstance(pkg_name, str) and pkg_name.strip()) else final_app_id
+    
+    return final_app_id, final_pkg_name
 
 @requirement_bp.route('/', methods=['POST'])
 def create_requirement():
@@ -38,12 +48,21 @@ def create_requirement():
         }
         normalized_spec = normalize_requirements(extract_payload)
         
+        req_name = normalized_spec.get('request_name') or 'NLP Chat Request'
+        final_app_id, final_pkg_name = derive_app_and_package_id(
+            req_name, 
+            normalized_spec.get('application_id'), 
+            normalized_spec.get('package_name')
+        )
+        normalized_spec['application_id'] = final_app_id
+        normalized_spec['package_name'] = final_pkg_name
+
         # Save request
         request_id = execute_write(
             "INSERT INTO generation_requests (request_name, application_id, package_name, requested_by) VALUES (%s, %s, %s, %s)",
-            (normalized_spec.get('request_name', 'NLP Chat Request'), 
-             normalized_spec.get('application_id', 'com.generated.app'), 
-             normalized_spec.get('package_name', 'com.generated.app'), 
+            (req_name, 
+             final_app_id, 
+             final_pkg_name, 
              data.get('requested_by', 'User'))
         )
         
@@ -103,12 +122,21 @@ def intake_chat():
         
         if result.get('status') == 'complete':
             req = result.get('requirements', {})
+            req_name = req.get('request_name') or 'NLP Chat Request'
+            final_app_id, final_pkg_name = derive_app_and_package_id(
+                req_name, 
+                req.get('application_id'), 
+                req.get('package_name')
+            )
+            req['application_id'] = final_app_id
+            req['package_name'] = final_pkg_name
+
             # Save request
             request_id = execute_write(
                 "INSERT INTO generation_requests (request_name, application_id, package_name, requested_by) VALUES (%s, %s, %s, %s)",
-                (req.get('request_name', 'NLP Chat Request'), 
-                 req.get('application_id', 'com.generated.app'), 
-                 req.get('package_name', 'com.generated.app'), 
+                (req_name, 
+                 final_app_id, 
+                 final_pkg_name, 
                  'User')
             )
             

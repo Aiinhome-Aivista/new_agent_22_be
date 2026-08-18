@@ -24,8 +24,8 @@ Structure 2 (Complete):
     "status": "complete",
     "requirements": {{
         "request_name": "Short descriptive name",
-        "application_id": "com.company.app",
-        "package_name": "com.company.app",
+        "application_id": "com.company.app (If user gave an id/package, use it. If not provided or user asks for defaults, automatically generate a valid Java ID based on project name like com.company.<project_slug>, NEVER leave empty)",
+        "package_name": "com.company.app (Match or derive from application_id, NEVER leave empty)",
         "source_topics": "comma separated source topics",
         "target_topics": "comma separated target topics or empty",
         "consumer_group": "consumer group name",
