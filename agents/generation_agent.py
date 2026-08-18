@@ -2,6 +2,9 @@ import os
 import jinja2
 import logging
 from config import PACKAGE_OUTPUT_DIR
+from llm_service import call_llm, load_prompt
+import re
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +49,11 @@ def generate_code(request_id, blueprint, spec, package_name, application_id):
     if "README.md" not in filenames:
         blueprint.get("files", []).append({"filename": "README.md", "purpose": "Documentation for microservice", "status": "planned"})
 
-    # Render files
-    for file_info in blueprint.get("files", []):
+    # Render files concurrently
+    def process_file(file_info):
         filename = file_info.get("filename")
         if not filename:
-            continue
+            return None
             
         template_name = None
         if filename.endswith("Processor.java"):
@@ -80,6 +83,28 @@ def generate_code(request_id, blueprint, spec, package_name, application_id):
                 template = env.get_template(template_name)
                 content = template.render(context)
                 
+                # Enhance code with LLM based on blueprint design
+                try:
+                    logger.info(f"Enhancing {filename} with LLM...")
+                    prompt = load_prompt(
+                        "generation_prompt",
+                        filename=filename,
+                        purpose=file_info.get("purpose", ""),
+                        class_design=blueprint.get("class_design", ""),
+                        mermaid_diagram=blueprint.get("mermaid_diagram", ""),
+                        skeleton_code=content
+                    )
+                    
+                    llm_code = call_llm(prompt)
+                    if llm_code and llm_code.strip():
+                        match = re.search(r"```(?:\w+)?\n(.*?)```", llm_code, re.DOTALL)
+                        if match:
+                            content = match.group(1).strip()
+                        else:
+                            content = llm_code.strip()
+                except Exception as e:
+                    logger.error(f"Failed to enhance {filename} with LLM: {e}")
+                
                 # Determine subfolder
                 subfolder = ""
                 if filename.endswith(".java"):
@@ -96,17 +121,25 @@ def generate_code(request_id, blueprint, spec, package_name, application_id):
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(content)
                     
-                generated_files.append({
-                    "file_name": filename,
-                    "file_path": file_path,
-                    "file_type": "java" if filename.endswith(".java") else ("yaml" if filename.endswith(".yml") else "md")
-                })
-                
                 # Update status in blueprint
                 file_info["status"] = "generated"
                 
+                return {
+                    "file_name": filename,
+                    "file_path": file_path,
+                    "file_type": "java" if filename.endswith(".java") else ("yaml" if filename.endswith(".yml") else "md")
+                }
+                
             except Exception as e:
                 logger.error(f"Error generating {filename}: {e}")
+        return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        results = executor.map(process_file, blueprint.get("files", []))
+        
+    for res in results:
+        if res:
+            generated_files.append(res)
 
     # Ensure README.md is always rendered on disk
     readme_path = os.path.join(out_dir, "README.md")

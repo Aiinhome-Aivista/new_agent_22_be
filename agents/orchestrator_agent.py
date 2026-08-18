@@ -78,7 +78,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         write_audit(request_id, "Blueprint Agent", "Design", "Patterns & Spec", "Blueprint ready")
         
         if draft_mode:
-            execute_write("UPDATE generation_requests SET status='blueprint_review' WHERE id=%s", (request_id,))
+            execute_write("UPDATE generation_requests SET status='draft' WHERE id=%s", (request_id,))
             update_job_status(job_id, 'completed', 'Blueprint', 'Pipeline paused for manual blueprint review')
             return
 
