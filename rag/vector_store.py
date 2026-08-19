@@ -6,7 +6,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 class VectorStore:
-    def __init__(self):
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(VectorStore, cls).__new__(cls)
+            cls._instance._initialize()
+        return cls._instance
+
+    def _initialize(self):
         try:
             self.client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
             self.collection = self.client.get_or_create_collection(name="agent22_knowledge_base")
@@ -27,13 +35,18 @@ class VectorStore:
         except Exception as e:
             logger.error(f"Error adding documents to vector store: {e}")
 
-    def query(self, text, top_k=5):
+    def query(self, text, top_k=5, where_filter=None):
         try:
             query_embedding = self.embedding_model.encode([text]).tolist()
-            results = self.collection.query(
-                query_embeddings=query_embedding,
-                n_results=top_k
-            )
+            
+            kwargs = {
+                "query_embeddings": query_embedding,
+                "n_results": top_k
+            }
+            if where_filter:
+                kwargs["where"] = where_filter
+                
+            results = self.collection.query(**kwargs)
             return results
         except Exception as e:
             logger.error(f"Error querying vector store: {e}")
