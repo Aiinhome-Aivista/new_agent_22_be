@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS generated_files (
     file_name VARCHAR(255),
     file_path VARCHAR(512),
     file_type ENUM('java','yaml','xml','md','test'),
+    file_content LONGTEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (request_id) REFERENCES generation_requests(id) ON DELETE CASCADE,
     INDEX (request_id)

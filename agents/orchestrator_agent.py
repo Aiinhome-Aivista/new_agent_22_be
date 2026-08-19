@@ -11,6 +11,7 @@ from agents.validation_agent import validate_package
 from config import PACKAGE_OUTPUT_DIR
 import os
 import zipfile
+from rag.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -76,21 +77,45 @@ def run_pipeline(request_id, job_id, draft_mode=False):
                 (request_id, json.dumps({"files": blueprint.get("files", [])}), blueprint.get("class_design", ""), blueprint.get("rationale", ""), blueprint.get("mermaid_diagram", ""), "draft" if draft_mode else "approved")
             )
         write_audit(request_id, "Blueprint Agent", "Design", "Patterns & Spec", "Blueprint ready")
-        
         if draft_mode:
             execute_write("UPDATE generation_requests SET status='draft' WHERE id=%s", (request_id,))
             update_job_status(job_id, 'completed', 'Blueprint', 'Pipeline paused for manual blueprint review')
             return
+            
+        try:
+            vs = VectorStore()
+            bp_doc = f"Blueprint Design:\n{blueprint.get('class_design', '')}\nRationale:\n{blueprint.get('rationale', '')}"
+            vs.add_documents([bp_doc], [{"request_id": request_id, "type": "blueprint"}], [f"req_{request_id}_bp"])
+        except Exception as e:
+            logger.error(f"Failed to add blueprint to VectorStore: {e}")
 
                     
         # 5. Generation Agent
         update_job_status(job_id, 'running', 'Generation', 'Rendering Jinja2 templates')
         generated_files, updated_blueprint = generate_code(request_id, blueprint, spec, req['package_name'], req['application_id'])
-        for f in generated_files:
+        
+        docs = []
+        metas = []
+        ids = []
+        
+        for idx, f in enumerate(generated_files):
             execute_write(
-                "INSERT INTO generated_files (request_id, file_name, file_path, file_type) VALUES (%s, %s, %s, %s)",
-                (request_id, f['file_name'], f['file_path'], f['file_type'])
+                "INSERT INTO generated_files (request_id, file_name, file_path, file_type, file_content) VALUES (%s, %s, %s, %s, %s)",
+                (request_id, f['file_name'], f['file_path'], f['file_type'], f.get('file_content', ''))
             )
+            content = f.get('file_content', '')
+            if content.strip():
+                docs.append(f"Generated File {f['file_name']}:\n{content}")
+                metas.append({"request_id": request_id, "type": "code"})
+                ids.append(f"req_{request_id}_code_{idx}")
+                
+        try:
+            if docs:
+                vs = VectorStore()
+                vs.add_documents(docs, metas, ids)
+        except Exception as e:
+            logger.error(f"Failed to add generated code to VectorStore: {e}")
+            
         write_audit(request_id, "Generation Agent", "Render", "Blueprint", f"Generated {len(generated_files)} files")
         execute_write("UPDATE generation_requests SET status='in_progress' WHERE id=%s", (request_id,))
         
@@ -115,14 +140,8 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         
         # 7. Packaging Agent
         if not has_errors:
-            update_job_status(job_id, 'running', 'Packaging', 'Zipping generated package')
-            zip_path = os.path.join(PACKAGE_OUTPUT_DIR, f"{request_id}_package.zip")
-            with zipfile.ZipFile(zip_path, 'w') as zipf:
-                for root, dirs, files in os.walk(out_dir):
-                    for file in files:
-                        file_path = os.path.join(root, file)
-                        arcname = os.path.relpath(file_path, out_dir)
-                        zipf.write(file_path, arcname)
+            update_job_status(job_id, 'running', 'Packaging', 'Marking as packaged (in DB)')
+            zip_path = "virtual/db_stored.zip"
                         
             execute_write("DELETE FROM packages WHERE request_id=%s", (request_id,))
             execute_write(
