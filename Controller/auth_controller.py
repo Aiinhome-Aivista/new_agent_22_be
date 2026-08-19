@@ -58,10 +58,9 @@ def login():
             ],
             'architect': [
                 {'name': 'Dashboard', 'path': '/architect/dashboard', 'icon': 'ChartBarIcon'},
-                {'name': 'Pattern Review', 'path': '/review/patterns', 'icon': 'MagnifyingGlassIcon'},
-                {'name': 'Blueprint Review', 'path': '/review/blueprint', 'icon': 'DocumentCheckIcon'},
+                {'name': 'Blueprint Reviews', 'path': '/review/blueprint', 'icon': 'RectangleGroupIcon'},
                 {'name': 'Architecture Standards', 'path': '/standards', 'icon': 'BuildingLibraryIcon'},
-                {'name': 'Knowledge Base', 'path': '/knowledge', 'icon': 'BookOpenIcon'},
+                {'name': 'Pending Approvals', 'path': '/review/queue', 'icon': 'ClipboardDocumentCheckIcon'},
                 {'name': 'Advisor Chat', 'path': '/chat', 'icon': 'ChatBubbleLeftIcon'}
             ],
             'techlead': [

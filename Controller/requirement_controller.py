@@ -5,8 +5,21 @@ from flask import Blueprint, request, jsonify
 from db import execute_query, execute_write
 from agents.requirements_agent import normalize_requirements, analyze_conversational_intake
 import json
+from rag.vector_store import VectorStore
+import PyPDF2
+from io import BytesIO
 
 requirement_bp = Blueprint('requirement', __name__)
+
+def chunk_text(text, chunk_size=1500, overlap=200):
+    chunks = []
+    start = 0
+    text_len = len(text)
+    while start < text_len:
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start += chunk_size - overlap
+    return chunks
 
 def derive_app_and_package_id(request_name, app_id=None, pkg_name=None):
     clean_slug = re.sub(r'[^a-zA-Z0-9]', '', request_name or '').lower() or 'app'
@@ -26,17 +39,38 @@ def create_requirement():
     language = data.get('language', 'Java Kafka')
 
     file_uploads = request.files.getlist('file_upload')
-    saved_file_paths = []
-    
-    upload_dir = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'schemas')
-    os.makedirs(upload_dir, exist_ok=True)
+    saved_file_paths = [] # This will now store [{"filename": "...", "content": "..."}]
     
     for file_upload in file_uploads:
         if file_upload and file_upload.filename:
             filename = secure_filename(file_upload.filename)
-            file_path = os.path.join(upload_dir, filename)
-            file_upload.save(file_path)
-            saved_file_paths.append(file_path)
+            try:
+                file_bytes = file_upload.read()
+                content = ""
+                filename_lower = filename.lower()
+                
+                if filename_lower.endswith('.pdf'):
+                    reader = PyPDF2.PdfReader(BytesIO(file_bytes))
+                    for page in reader.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            content += page_text + "\n"
+                elif filename_lower.endswith('.docx'):
+                    import docx
+                    doc = docx.Document(BytesIO(file_bytes))
+                    content = "\n".join([para.text for para in doc.paragraphs])
+                elif filename_lower.endswith('.pptx'):
+                    from pptx import Presentation
+                    prs = Presentation(BytesIO(file_bytes))
+                    for slide in prs.slides:
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text"):
+                                content += shape.text + "\n"
+                else:
+                    content = file_bytes.decode('utf-8', errors='ignore')
+                saved_file_paths.append({"filename": filename, "content": content})
+            except Exception as e:
+                print(f"Error reading file {filename}: {e}")
 
     try:
         # Use LLM to extract ALL requirements from the unstructured prompt
@@ -44,7 +78,7 @@ def create_requirement():
         extract_payload = {
             'prompt': prompt,
             'language': language,
-            'attached_files': [os.path.basename(p) for p in saved_file_paths]
+            'attached_files': [f"Filename: {f['filename']}\nContent:\n{f['content'][:5000]}" for f in saved_file_paths]
         }
         normalized_spec = normalize_requirements(extract_payload)
         
@@ -70,9 +104,9 @@ def create_requirement():
             return jsonify({"success": False, "message": "Failed to save request"}), 500
             
         # Save spec
-        # For multiple files, we'll store them as a JSON string in sample_file_path or just the first one if schema doesn't support array.
-        # Assuming sample_file_path is a text/varchar column, we can store JSON array of paths.
-        paths_str = json.dumps(saved_file_paths) if saved_file_paths else None
+        # Assuming sample_file_path is a text/varchar column, we store JSON array of filenames.
+        paths_to_store = [f['filename'] for f in saved_file_paths]
+        paths_str = json.dumps(paths_to_store) if paths_to_store else None
         
         execute_write(
             """INSERT INTO generation_specs (request_id, source_topics, target_topics, consumer_group, state_store_needed, error_topic_policy, schema_hints, sample_file_path, normalized_by) 
@@ -81,6 +115,25 @@ def create_requirement():
              normalized_spec.get('consumer_group'), normalized_spec.get('state_store_needed', False), 
              normalized_spec.get('error_topic_policy', 'DLQ'), prompt, paths_str, 'ai')
         )
+        
+        # Add to Vector Store
+        try:
+            vs = VectorStore()
+            docs = []
+            if prompt.strip():
+                docs.append(prompt)
+            for f in saved_file_paths:
+                if f['content'].strip():
+                    chunks = chunk_text(f['content'])
+                    for idx, chunk in enumerate(chunks):
+                        docs.append(f"File {f['filename']} (Part {idx+1}):\n{chunk}")
+            
+            if docs:
+                metas = [{"request_id": request_id, "type": "intake"} for _ in docs]
+                ids = [f"req_{request_id}_intake_{i}" for i in range(len(docs))]
+                vs.add_documents(docs, metas, ids)
+        except Exception as e:
+            print(f"Failed to add to VectorStore: {e}")
         
         return jsonify({"success": True, "data": {"request_id": request_id, "spec": normalized_spec}}), 201
     except ValueError as e:
@@ -106,19 +159,40 @@ def intake_chat():
     file_uploads = request.files.getlist('file_upload')
     saved_file_paths = []
     
-    upload_dir = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'schemas')
-    os.makedirs(upload_dir, exist_ok=True)
-    
     for file_upload in file_uploads:
         if file_upload and file_upload.filename:
             filename = secure_filename(file_upload.filename)
-            file_path = os.path.join(upload_dir, filename)
-            file_upload.save(file_path)
-            saved_file_paths.append(file_path)
+            try:
+                file_bytes = file_upload.read()
+                content = ""
+                filename_lower = filename.lower()
+                
+                if filename_lower.endswith('.pdf'):
+                    reader = PyPDF2.PdfReader(BytesIO(file_bytes))
+                    for page in reader.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            content += page_text + "\n"
+                elif filename_lower.endswith('.docx'):
+                    import docx
+                    doc = docx.Document(BytesIO(file_bytes))
+                    content = "\n".join([para.text for para in doc.paragraphs])
+                elif filename_lower.endswith('.pptx'):
+                    from pptx import Presentation
+                    prs = Presentation(BytesIO(file_bytes))
+                    for slide in prs.slides:
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text"):
+                                content += shape.text + "\n"
+                else:
+                    content = file_bytes.decode('utf-8', errors='ignore')
+                saved_file_paths.append({"filename": filename, "content": content})
+            except Exception as e:
+                print(f"Error reading file {filename}: {e}")
             
     try:
-        files = [os.path.basename(p) for p in saved_file_paths]
-        result = analyze_conversational_intake(messages, language, files)
+        files_content = [f"Filename: {f['filename']}\nContent:\n{f['content'][:5000]}" for f in saved_file_paths]
+        result = analyze_conversational_intake(messages, language, files_content)
         
         if result.get('status') == 'complete':
             req = result.get('requirements', {})
@@ -141,7 +215,8 @@ def intake_chat():
             )
             
             # Save spec
-            paths_str = json.dumps(saved_file_paths) if saved_file_paths else None
+            paths_to_store = [f['filename'] for f in saved_file_paths]
+            paths_str = json.dumps(paths_to_store) if paths_to_store else None
             execute_write(
                 """INSERT INTO generation_specs (request_id, source_topics, target_topics, consumer_group, state_store_needed, error_topic_policy, schema_hints, sample_file_path, normalized_by) 
                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
@@ -149,6 +224,26 @@ def intake_chat():
                  req.get('consumer_group'), req.get('state_store_needed', False), 
                  req.get('error_topic_policy', 'DLQ'), json.dumps(messages), paths_str, 'ai')
             )
+            
+            # Add to Vector Store
+            try:
+                vs = VectorStore()
+                docs = []
+                chat_text = "\n".join([f"{msg.get('role')}: {msg.get('text')}" for msg in messages])
+                if chat_text.strip():
+                    docs.append(chat_text)
+                for f in saved_file_paths:
+                    if f['content'].strip():
+                        chunks = chunk_text(f['content'])
+                        for idx, chunk in enumerate(chunks):
+                            docs.append(f"File {f['filename']} (Part {idx+1}):\n{chunk}")
+                
+                if docs:
+                    metas = [{"request_id": request_id, "type": "intake"} for _ in docs]
+                    ids = [f"req_{request_id}_intake_{i}" for i in range(len(docs))]
+                    vs.add_documents(docs, metas, ids)
+            except Exception as e:
+                print(f"Failed to add to VectorStore: {e}")
             
             return jsonify({"success": True, "status": "complete", "data": {"request_id": request_id}})
         else:

@@ -20,22 +20,12 @@ def build_package():
     if errors:
         return jsonify({"success": False, "message": "Cannot build package with open validation errors"}), 400
         
-    out_dir = os.path.join(PACKAGE_OUTPUT_DIR, str(req_id))
-    zip_path = os.path.join(PACKAGE_OUTPUT_DIR, f"{req_id}_package.zip")
-    
-    if not os.path.exists(out_dir):
-        return jsonify({"success": False, "message": "Generated files not found"}), 404
-        
-    with zipfile.ZipFile(zip_path, 'w') as zipf:
-        for root, dirs, files in os.walk(out_dir):
-            for file in files:
-                file_path = os.path.join(root, file)
-                arcname = os.path.relpath(file_path, out_dir)
-                zipf.write(file_path, arcname)
+    # Just mark as packaged in DB without physical zip
+    zip_path = "virtual/db_stored.zip"
                 
     execute_write(
         "INSERT INTO packages (request_id, zip_path, validation_summary) VALUES (%s, %s, %s)",
-        (req_id, zip_path, "Built manually via API")
+        (req_id, zip_path, "Built manually via API - In Memory Zip")
     )
     execute_write("UPDATE generation_requests SET status='packaged' WHERE id=%s", (req_id,))
     
@@ -48,10 +38,31 @@ def list_packages():
 
 @packaging_bp.route('/download/<int:pkg_id>', methods=['GET'])
 def download(pkg_id):
-    pkg = execute_query("SELECT zip_path FROM packages WHERE id=%s", (pkg_id,))
-    if not pkg or not os.path.exists(pkg[0]['zip_path']):
+    import io
+    pkg = execute_query("SELECT request_id FROM packages WHERE id=%s", (pkg_id,))
+    if not pkg:
         return jsonify({"success": False, "message": "Not found"}), 404
-    return send_file(pkg[0]['zip_path'], as_attachment=True)
+        
+    req_id = pkg[0]['request_id']
+    files = execute_query("SELECT file_name, file_path, file_content FROM generated_files WHERE request_id=%s", (req_id,))
+    
+    memory_file = io.BytesIO()
+    with zipfile.ZipFile(memory_file, 'w') as zipf:
+        for f in files:
+            arcname = f['file_name']
+            if f.get('file_path'):
+                # Try to extract the relative path from the absolute virtual path
+                if 'generated_packages' in f['file_path']:
+                    parts = f['file_path'].split('generated_packages')
+                    if len(parts) > 1:
+                        # e.g., /123/src/main/... -> src/main/...
+                        sub_path = parts[1].replace('\\', '/').strip('/')
+                        if '/' in sub_path:
+                            arcname = sub_path.split('/', 1)[1]
+            zipf.writestr(arcname, f.get('file_content', '') or '')
+            
+    memory_file.seek(0)
+    return send_file(memory_file, download_name=f"package_{req_id}.zip", as_attachment=True)
 
 @packaging_bp.route('/generate-scripts', methods=['POST'])
 def generate_scripts():
@@ -85,23 +96,26 @@ def generate_scripts():
     scripts = generate_packaging_scripts(spec, env_config, java_files)
     
     # Save files to disk and DB
-    out_dir = os.path.join(PACKAGE_OUTPUT_DIR, str(req_id))
-    os.makedirs(out_dir, exist_ok=True)
+    # Save files to DB only
+    out_dir = os.path.join(PACKAGE_OUTPUT_DIR, str(req_id)).replace('\\', '/')
     
     for filename, content in [('pom.xml', scripts.get('pom_xml', '')), 
                               ('Dockerfile', scripts.get('dockerfile', '')), 
                               ('deployment.yaml', scripts.get('deployment_yaml', ''))]:
         
-        file_path = os.path.join(out_dir, filename)
-        with open(file_path, 'w') as f:
-            f.write(content)
+        file_path = f"{out_dir}/{filename}"
             
         # Update or insert into generated_files
         existing = execute_query("SELECT id FROM generated_files WHERE request_id = %s AND file_name = %s", (req_id, filename))
         if not existing:
             execute_write(
-                "INSERT INTO generated_files (request_id, file_name, file_path, file_type) VALUES (%s, %s, %s, %s)",
-                (req_id, filename, file_path, 'yaml' if filename.endswith('.yaml') else 'xml')
+                "INSERT INTO generated_files (request_id, file_name, file_path, file_type, file_content) VALUES (%s, %s, %s, %s, %s)",
+                (req_id, filename, file_path, 'yaml' if filename.endswith('.yaml') else 'xml', content)
+            )
+        else:
+            execute_write(
+                "UPDATE generated_files SET file_content=%s WHERE id=%s",
+                (content, existing[0]['id'])
             )
             
     return jsonify({"success": True, "message": "Scripts generated successfully", "data": scripts})

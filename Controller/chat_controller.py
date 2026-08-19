@@ -32,19 +32,29 @@ def ask():
         specs = execute_query("SELECT * FROM generation_specs WHERE request_id=%s", (req_id,))
         bps = execute_query("SELECT class_design, generated_rationale FROM blueprints WHERE request_id=%s", (req_id,))
         if specs:
-            context += f"\nRequest Specs: {json.dumps(specs[0])}"
+            context += f"\nRequest Specs: {str(specs[0])}"
         if bps:
-            context += f"\nBlueprint context: {json.dumps(bps[0])}"
+            context += f"\nBlueprint context: {str(bps[0])}"
             
     try:
         vs = VectorStore()
-        rag_results = vs.query(question, top_k=2)
+        where_clause = {"request_id": int(req_id)} if req_id else None
+        rag_results = vs.query(question, top_k=2, where_filter=where_clause)
         if rag_results and 'documents' in rag_results and rag_results['documents'] and len(rag_results['documents']) > 0:
             docs = rag_results['documents'][0]
             context += f"\n\nKnowledge Base Reference:\n" + "\n".join(docs)
     except Exception as e:
         print(f"RAG query failed: {e}")
             
+    # Fetch chat history for conversational memory
+    history = execute_query("SELECT question, answer FROM chat_history WHERE session_id=%s ORDER BY created_at DESC LIMIT 5", (session_id,))
+    if history:
+        history.reverse() # chronologically
+        history_str = "\n\nPrevious Conversation History:\n"
+        for row in history:
+            history_str += f"User: {row['question']}\nAI: {row['answer']}\n"
+        context += history_str
+
     prompt = load_prompt("chat_prompt", role_instruction=role_instruction, context=context, question=question)
     answer = call_llm(prompt)
     
