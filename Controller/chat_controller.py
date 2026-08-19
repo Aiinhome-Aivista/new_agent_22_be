@@ -32,9 +32,9 @@ def ask():
         specs = execute_query("SELECT * FROM generation_specs WHERE request_id=%s", (req_id,))
         bps = execute_query("SELECT class_design, generated_rationale FROM blueprints WHERE request_id=%s", (req_id,))
         if specs:
-            context += f"\nRequest Specs: {json.dumps(specs[0])}"
+            context += f"\nRequest Specs: {str(specs[0])}"
         if bps:
-            context += f"\nBlueprint context: {json.dumps(bps[0])}"
+            context += f"\nBlueprint context: {str(bps[0])}"
             
     try:
         vs = VectorStore()
