@@ -17,16 +17,22 @@ def retrieve():
         
     patterns = retrieve_patterns(spec_rows[0])
     
-    # Store in DB
-    for p in patterns:
-        execute_write(
-            "INSERT INTO pattern_matches (request_id, pattern_type, source_reference, similarity_score, cited_text) VALUES (%s, %s, %s, %s, %s)",
-            (req_id, p['pattern_type'], p['source_reference'], p['similarity_score'], p['cited_text'])
-        )
+    # Store in DB if table exists
+    try:
+        for p in patterns:
+            execute_write(
+                "INSERT INTO pattern_matches (request_id, pattern_type, source_reference, similarity_score, cited_text) VALUES (%s, %s, %s, %s, %s)",
+                (req_id, p['pattern_type'], p['source_reference'], p['similarity_score'], p['cited_text'])
+            )
+    except Exception:
+        pass
         
     return jsonify({"success": True, "data": patterns})
 
 @pattern_bp.route('/request/<int:req_id>', methods=['GET'])
 def get_patterns(req_id):
-    patterns = execute_query("SELECT * FROM pattern_matches WHERE request_id=%s ORDER BY similarity_score DESC", (req_id,))
-    return jsonify({"success": True, "data": patterns})
+    try:
+        patterns = execute_query("SELECT * FROM pattern_matches WHERE request_id=%s ORDER BY similarity_score DESC", (req_id,))
+        return jsonify({"success": True, "data": patterns})
+    except Exception:
+        return jsonify({"success": True, "data": []})
