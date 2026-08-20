@@ -31,10 +31,6 @@ def get_reviews(req_id):
     reviews = execute_query("SELECT * FROM reviews WHERE request_id=%s ORDER BY created_at DESC", (req_id,))
     return jsonify({"success": True, "data": reviews})
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 14b5e5fc8b3a8194004043b8f1ec600d3055f5c9
 @review_bp.route('/queue', methods=['GET'])
 def get_review_queue():
     requests = execute_query("""
@@ -51,8 +47,4 @@ def get_review_queue():
     return jsonify({
         "success": True,
         "data": requests
-<<<<<<< HEAD
     })
-=======
-    })
->>>>>>> 14b5e5fc8b3a8194004043b8f1ec600d3055f5c9
