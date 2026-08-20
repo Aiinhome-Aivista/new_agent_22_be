@@ -138,31 +138,45 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         write_audit(request_id, "Validation Agent", "Validate", f"{len(generated_files)} files", val_summary)
         execute_write("UPDATE generation_requests SET status='validated' WHERE id=%s", (request_id,))
         
-        # 7. Packaging Agent
-        if not has_errors:
-            update_job_status(job_id, 'running', 'Packaging', 'Marking as packaged (in DB)')
-            zip_path = "virtual/db_stored.zip"
-                        
-            execute_write("DELETE FROM packages WHERE request_id=%s", (request_id,))
-            execute_write(
-                "INSERT INTO packages (request_id, zip_path, validation_summary) VALUES (%s, %s, %s)",
-                (request_id, zip_path, val_summary)
-            )
-            execute_write("UPDATE generation_requests SET status='packaged' WHERE id=%s", (request_id,))
-            write_audit(request_id, "Packaging Agent", "Zip", "Valid files", f"Created {zip_path}")
-        else:
-            update_job_status(job_id, 'running', 'Packaging', 'Skipped packaging due to validation errors')
-            write_audit(request_id, "Packaging Agent", "Zip", "Invalid files", "Skipped due to errors")
-
-        update_job_status(job_id, 'completed', 'Finished', 'Pipeline completed successfully')
+        # Pipeline pauses here for Tech Lead review
+        update_job_status(job_id, 'completed', 'Finished', 'Pipeline paused for Tech Lead review')
         
     except Exception as e:
         logger.error(f"Pipeline error: {traceback.format_exc()}")
         update_job_status(job_id, 'failed', 'Error', f"Exception: {str(e)}")
         write_audit(request_id, "Orchestrator", "Execute", "Pipeline", "Failed", str(e))
 
+def run_packaging(request_id, job_id=None):
+    try:
+        if job_id:
+            update_job_status(job_id, 'running', 'Packaging', 'Marking as packaged (in DB)')
+        
+        zip_path = "virtual/db_stored.zip"
+                    
+        execute_write("DELETE FROM packages WHERE request_id=%s", (request_id,))
+        execute_write(
+            "INSERT INTO packages (request_id, zip_path, validation_summary) VALUES (%s, %s, %s)",
+            (request_id, zip_path, "Approved and Packaged by Tech Lead")
+        )
+        execute_write("UPDATE generation_requests SET status='packaged' WHERE id=%s", (request_id,))
+        write_audit(request_id, "Packaging Agent", "Zip", "Valid files", f"Created {zip_path}")
+        
+        if job_id:
+            update_job_status(job_id, 'completed', 'Finished', 'Packaging completed successfully')
+    except Exception as e:
+        logger.error(f"Packaging error: {traceback.format_exc()}")
+        if job_id:
+            update_job_status(job_id, 'failed', 'Error', f"Exception: {str(e)}")
+        write_audit(request_id, "Packaging Agent", "Zip", "Valid files", "Failed", str(e))
+
 def start_pipeline_thread(request_id, draft_mode=False):
     job_id = execute_write("INSERT INTO pipeline_jobs (request_id) VALUES (%s)", (request_id,))
     t = threading.Thread(target=run_pipeline, args=(request_id, job_id, draft_mode))
+    t.start()
+    return job_id
+
+def start_packaging_thread(request_id):
+    job_id = execute_write("INSERT INTO pipeline_jobs (request_id) VALUES (%s)", (request_id,))
+    t = threading.Thread(target=run_packaging, args=(request_id, job_id))
     t.start()
     return job_id

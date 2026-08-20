@@ -96,6 +96,10 @@ def signoff_review():
     # According to our schema enum, we have 'approved', 'packaged', 'rework'
     execute_write("UPDATE generation_requests SET status=%s WHERE id=%s", (decision, request_id))
     
+    if decision == 'approved':
+        from agents.orchestrator_agent import start_packaging_thread
+        start_packaging_thread(request_id)
+    
     return jsonify({"success": True, "message": f"Sign-off recorded as {decision}"})
 
 @techlead_bp.route('/reports/summary', methods=['GET'])
@@ -130,7 +134,7 @@ def get_reports_summary():
 def get_reports_list():
     # Fetch completed or packaged generation requests as reports
     query = """
-        SELECT id, request_name as title, application_id, 'JSON' as type, created_at as date
+        SELECT id, request_name as title, application_id, 'PDF, DOCX' as type, created_at as date
         FROM generation_requests
         WHERE status IN ('validated', 'packaged', 'approved')
         ORDER BY created_at DESC
@@ -167,6 +171,76 @@ def download_report(report_id):
         "validations": validations or []
     }
     
+    format_type = request.args.get('format', 'json').lower()
+    
+    if format_type == 'docx':
+        from docx import Document
+        import io
+        
+        doc = Document()
+        doc.add_heading(report_data['report_metadata']['title'], 0)
+        doc.add_paragraph(f"Generated On: {report_data['report_metadata']['generated_on']}")
+        doc.add_heading('Request Details', level=1)
+        for k, v in report_data['request_details'].items():
+            doc.add_paragraph(f"{k}: {v}")
+            
+        doc.add_heading('Specification', level=1)
+        for k, v in report_data['specification'].items():
+            doc.add_paragraph(f"{k}: {v}")
+            
+        doc.add_heading('Validations', level=1)
+        for v in report_data['validations']:
+            passed_str = 'Yes' if v.get('passed') else 'No'
+            doc.add_paragraph(f"[{str(v.get('severity', 'info')).upper()}] {str(v.get('rule_name', ''))}: {str(v.get('message', ''))} (Passed: {passed_str})")
+            
+        b = io.BytesIO()
+        doc.save(b)
+        b.seek(0)
+        return Response(
+            b.read(),
+            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-disposition": f"attachment; filename=audit_report_{report_id}.docx"}
+        )
+        
+    elif format_type == 'pdf':
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+        import io
+        
+        b = io.BytesIO()
+        doc = SimpleDocTemplate(b, pagesize=letter)
+        styles = getSampleStyleSheet()
+        Story = []
+        
+        Story.append(Paragraph(report_data['report_metadata']['title'], styles['Title']))
+        Story.append(Paragraph(f"Generated On: {report_data['report_metadata']['generated_on']}", styles['Normal']))
+        Story.append(Spacer(1, 12))
+        
+        Story.append(Paragraph('Request Details', styles['Heading1']))
+        for k, v in report_data['request_details'].items():
+            Story.append(Paragraph(f"<b>{k}:</b> {str(v)}", styles['Normal']))
+            
+        Story.append(Spacer(1, 12))
+        Story.append(Paragraph('Specification', styles['Heading1']))
+        for k, v in report_data['specification'].items():
+            Story.append(Paragraph(f"<b>{k}:</b> {str(v)}", styles['Normal']))
+            
+        Story.append(Spacer(1, 12))
+        Story.append(Paragraph('Validations', styles['Heading1']))
+        for v in report_data['validations']:
+            passed_str = 'Yes' if v.get('passed') else 'No'
+            Story.append(Paragraph(f"<b>[{str(v.get('severity', 'info')).upper()}]</b> {str(v.get('rule_name', ''))}: {str(v.get('message', ''))} (Passed: {passed_str})", styles['Normal']))
+            Story.append(Spacer(1, 6))
+            
+        doc.build(Story)
+        b.seek(0)
+        return Response(
+            b.read(),
+            mimetype="application/pdf",
+            headers={"Content-disposition": f"attachment; filename=audit_report_{report_id}.pdf"}
+        )
+
     json_data = json.dumps(report_data, default=str, indent=4)
     
     return Response(
