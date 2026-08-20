@@ -57,7 +57,7 @@ def get_reviews():
     query = """
         SELECT r.id, r.request_name as serviceName, r.application_id as targetAppId, r.status, r.created_at as date
         FROM generation_requests r
-        WHERE r.status IN ('validated', 'packaged', 'rework')
+        WHERE r.status IN ('validated', 'packaged', 'rework', 'approved', 'rejected')
         ORDER BY r.created_at DESC
     """
     results = execute_query(query)
