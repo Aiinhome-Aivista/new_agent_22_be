@@ -34,20 +34,27 @@ def list_standards():
                 title = file.replace('.md', '').replace('_', ' ').replace('-', ' ').title()
 
                 # Sync to MySQL database architecture_standards table if missing
+                db_id = 0
                 try:
                     existing = execute_query("SELECT id FROM architecture_standards WHERE title=%s OR title=%s", (file, title))
                     if not existing:
-                        execute_write("INSERT INTO architecture_standards (title, description) VALUES (%s, %s)", (title, content))
+                        db_id = execute_write("INSERT INTO architecture_standards (title, description) VALUES (%s, %s)", (title, content)) or 0
+                    else:
+                        db_id = existing[0]['id']
                 except Exception as db_err:
                     print(f"DB sync notice: {db_err}")
 
+                mtime = os.path.getmtime(file_path)
                 standards.append({
                     "id": rel_path.replace('\\', '/'),
+                    "db_id": db_id,
                     "filename": file,
                     "folder": os.path.basename(root),
-                    "content": content
+                    "content": content,
+                    "mtime": mtime
                 })
                 
+    standards.sort(key=lambda x: (x.get('db_id', 0), x.get('mtime', 0)), reverse=True)
     return jsonify({"success": True, "data": standards})
 
 @standards_bp.route('/', methods=['POST'])
