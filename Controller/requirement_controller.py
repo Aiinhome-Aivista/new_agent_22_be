@@ -257,10 +257,17 @@ def intake_chat():
 @requirement_bp.route('/', methods=['GET'])
 def list_requirements():
     status = request.args.get('status')
+    query = """
+        SELECT r.*, s.schema_hints 
+        FROM generation_requests r 
+        LEFT JOIN generation_specs s ON r.id = s.request_id
+    """
     if status:
-        reqs = execute_query("SELECT * FROM generation_requests WHERE status=%s ORDER BY created_at DESC", (status,))
+        query += " WHERE r.status=%s ORDER BY r.created_at DESC"
+        reqs = execute_query(query, (status,))
     else:
-        reqs = execute_query("SELECT * FROM generation_requests ORDER BY created_at DESC")
+        query += " ORDER BY r.created_at DESC"
+        reqs = execute_query(query)
     return jsonify({"success": True, "data": reqs})
 
 @requirement_bp.route('/<int:req_id>', methods=['GET'])
