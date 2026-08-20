@@ -1,29 +1,42 @@
 import json
 import logging
-from llm_service import call_llm
+from llm_service import call_llm, load_prompt
 
 logger = logging.getLogger(__name__)
 
+def analyze_conversational_intake(messages, language="Java Kafka", files=None):
+    """
+    Analyzes the conversation history to determine if enough requirements have been gathered.
+    If not, it asks a clarifying question. If yes, it extracts the requirements.
+    """
+    files_str = f"Attached Files: {files}\n" if files else ""
+    
+    # Format chat history
+    history_str = ""
+    for msg in messages:
+        role = "User" if msg.get("role") == "user" else "Agent"
+        history_str += f"{role}: {msg.get('text')}\n"
+
+    prompt = load_prompt("analyze_conversation_prompt", language=language, files_str=files_str, history_str=history_str)
+    
+    llm_response = call_llm(prompt)
+    try:
+        start_idx = llm_response.find('{')
+        end_idx = llm_response.rfind('}') + 1
+        clean_json = llm_response[start_idx:end_idx]
+        return json.loads(clean_json)
+    except Exception as e:
+        logger.error(f"Failed to parse conversational LLM response: {llm_response}")
+        return {
+            "status": "more_info",
+            "question": "I'm having trouble understanding. Could you please provide more details about your project?"
+        }
+
 def normalize_requirements(req_data):
     """
-    Validates mandatory fields and uses LLM to normalize free-text hints.
+    Uses LLM to normalize free-text hints into structured requirements.
     """
-    if not req_data.get('application_id') or not req_data.get('package_name') or not req_data.get('source_topics'):
-        raise ValueError("Missing mandatory fields: application_id, package_name, or source_topics")
-
-    prompt = f"""
-    Normalize the following Kafka application requirements into a JSON object with these exact keys:
-    - source_topics (string)
-    - target_topics (string)
-    - consumer_group (string)
-    - state_store_needed (boolean)
-    - error_topic_policy (string)
-    
-    Requirements:
-    {json.dumps(req_data, default=str)}
-    
-    Respond ONLY with valid JSON.
-    """
+    prompt = load_prompt("normalize_requirements_prompt", language=req_data.get('language', 'Unknown'), user_prompt=req_data.get('prompt', ''), attached_files=req_data.get('attached_files', []))
     
     llm_response = call_llm(prompt)
     try:
@@ -34,11 +47,14 @@ def normalize_requirements(req_data):
         return normalized
     except Exception as e:
         logger.error(f"Failed to parse LLM response: {llm_response}")
-        # Fallback to manual mapping if AI parsing fails
+        # Fallback if AI parsing fails
         return {
-            "source_topics": req_data.get('source_topics', ''),
-            "target_topics": req_data.get('target_topics', ''),
-            "consumer_group": req_data.get('consumer_group', f"{req_data.get('application_id')}-group"),
-            "state_store_needed": req_data.get('state_store_needed', False),
-            "error_topic_policy": req_data.get('error_topic_policy', 'DLQ')
+            "request_name": "NLP Extracted Project",
+            "application_id": "com.generated.app",
+            "package_name": "com.generated.app",
+            "source_topics": "default.source",
+            "target_topics": "",
+            "consumer_group": "default-group",
+            "state_store_needed": False,
+            "error_topic_policy": "DLQ"
         }

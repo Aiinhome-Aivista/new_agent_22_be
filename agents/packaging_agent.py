@@ -1,6 +1,6 @@
 import json
 import logging
-from llm_service import call_llm
+from llm_service import call_llm, load_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -8,31 +8,7 @@ def generate_packaging_scripts(spec, env_config, java_files):
     """
     Calls LLM to produce pom.xml, Dockerfile, and deployment.yaml based on environment config and code.
     """
-    prompt = f"""
-    You are a DevOps AI Agent. Your task is to generate packaging and deployment scripts for a Kafka Streams application.
-    
-    Application Spec:
-    {json.dumps(spec, default=str)}
-    
-    Target Environment Configuration:
-    {json.dumps(env_config, default=str)}
-    
-    Generated Java Files manifest:
-    {json.dumps([f['file_name'] for f in java_files])}
-    
-    Produce a JSON response with exactly this structure:
-    {{
-      "pom_xml": "<string content of a valid Maven pom.xml>",
-      "dockerfile": "<string content of a valid Dockerfile using a Java runtime>",
-      "deployment_yaml": "<string content of a valid Kubernetes deployment and service yaml>"
-    }}
-    
-    Rules:
-    - Ensure the pom.xml has the correct groupId based on the package_name, and artifactId based on the application_id.
-    - Ensure Dockerfile exposes the typical prometheus/health port (e.g. 8080).
-    - Ensure deployment.yaml uses the docker_registry and namespace from the environment configuration.
-    - Respond ONLY with valid JSON.
-    """
+    prompt = load_prompt("packaging_prompt", spec_json=json.dumps(spec, default=str), env_config_json=json.dumps(env_config, default=str), java_files_manifest=json.dumps([f['file_name'] for f in java_files]))
     
     llm_response = call_llm(prompt)
     try:

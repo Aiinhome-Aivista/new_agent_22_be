@@ -1,16 +1,11 @@
 package {{ package_name }};
 
 import org.springframework.stereotype.Component;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j
 public class {{ handler_class_name }} {
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Business Processing Handler for {{ application_id }}
@@ -24,37 +19,10 @@ public class {{ handler_class_name }} {
         }
 
         try {
-            JsonNode rootNode = objectMapper.readTree(input);
-
-            // 1. Payload & Field Validation
-            if (!validatePayload(rootNode)) {
-                log.error("Payload validation failed for record: {}", input);
-                throw new IllegalArgumentException("Invalid payload schema or missing required fields - Routing to DLQ ({{ source_topics }}-dlq)");
-            }
-
-            ObjectNode processedNode = rootNode.deepCopy();
-
-            // 2. Extract and Evaluate Threshold Logic (e.g. Amount > 10000 -> High-Value Flag)
-            if (rootNode.has("amount") && rootNode.get("amount").isNumber()) {
-                double amount = rootNode.get("amount").asDouble();
-                boolean isHighValue = amount > 10000.0;
-                processedNode.put("highValueFlag", isHighValue);
-                if (isHighValue) {
-                    log.info("High-value transaction detected! Amount: {}", amount);
-                    processedNode.put("auditFlag", "HIGH_VALUE_TRANSACTION");
-                }
-            } else {
-                processedNode.put("highValueFlag", false);
-            }
-
-            // 3. Add Processing Metadata
-            processedNode.put("processedBy", "{{ application_id }}");
-            processedNode.put("processedTimestamp", System.currentTimeMillis());
-            processedNode.put("status", "SUCCESS");
-
-            String outputJson = objectMapper.writeValueAsString(processedNode);
-            log.info("Successfully processed record: {}", outputJson);
-            return outputJson;
+            // TODO: The LLM should implement the specific business logic here based on the Blueprint class design.
+            // Validate payload, apply transformations, and return the processed JSON string.
+            
+            return input;
 
         } catch (Exception e) {
             log.error("Error processing record payload [{}]: {}", input, e.getMessage(), e);
@@ -65,23 +33,6 @@ public class {{ handler_class_name }} {
             return null;
             {% endif %}
         }
-    }
-
-    /**
-     * Validates input JSON schema and required fields
-     */
-    private boolean validatePayload(JsonNode node) {
-        if (node == null || !node.isObject()) {
-            return false;
-        }
-
-        // Check field validity if JSON contains transaction / payment fields
-        if (node.has("amount") && node.get("amount").asDouble() < 0) {
-            log.warn("Validation failure: Amount cannot be negative");
-            return false;
-        }
-
-        return true;
     }
 }
 

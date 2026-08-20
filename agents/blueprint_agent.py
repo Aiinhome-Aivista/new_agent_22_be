@@ -1,6 +1,6 @@
 import json
 import logging
-from llm_service import call_llm
+from llm_service import call_llm, load_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -8,27 +8,7 @@ def generate_blueprint(spec, patterns):
     """
     Calls LLM with spec + patterns to produce file manifest and design.
     """
-    prompt = f"""
-    Design a Kafka Streams application based on these specs:
-    {json.dumps(spec, default=str)}
-    
-    Consider these retrieved patterns/standards:
-    {json.dumps(patterns, default=str)}
-    
-    Produce a JSON response with exactly this structure:
-    {{
-      "files": [
-        {{ "filename": "OrderProcessor.java", "purpose": "Consumes input", "generated": false, "status": "planned" }}
-      ],
-      "class_design": "Detailed string about classes and methods...",
-      "rationale": "Why this design was chosen...",
-      "alternative_designs": ["Alternative option 1...", "Alternative option 2..."],
-      "assumptions": ["Assumed state store because...", "Assumed exact once semantics..."]
-    }}
-    
-    Ensure you include at minimum a Processor, a Handler, and an application.yml.
-    Respond ONLY with valid JSON.
-    """
+    prompt = load_prompt("blueprint_prompt", spec_json=json.dumps(spec, default=str), patterns_json=json.dumps(patterns, default=str))
     
     llm_response = call_llm(prompt)
     try:
@@ -51,5 +31,6 @@ def generate_blueprint(spec, patterns):
             "class_design": "Default simple layout",
             "rationale": "Fallback due to LLM parsing error",
             "alternative_designs": ["No alternatives due to error"],
-            "assumptions": ["Fallback design assumption"]
+            "assumptions": ["Fallback design assumption"],
+            "mermaid_diagram": "graph TD;\n  A[Input] --> B[Processor];\n  B --> C[Output];"
         }

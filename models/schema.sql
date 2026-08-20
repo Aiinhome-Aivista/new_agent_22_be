@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS generation_specs (
     state_store_needed BOOLEAN DEFAULT FALSE,
     error_topic_policy VARCHAR(255),
     schema_hints TEXT,
+    sample_file_path VARCHAR(512),
     normalized_by ENUM('ai','manual'),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (request_id) REFERENCES generation_requests(id) ON DELETE CASCADE,
@@ -70,6 +71,7 @@ CREATE TABLE IF NOT EXISTS generated_files (
     file_name VARCHAR(255),
     file_path VARCHAR(512),
     file_type ENUM('java','yaml','xml','md','test'),
+    file_content LONGTEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (request_id) REFERENCES generation_requests(id) ON DELETE CASCADE,
     INDEX (request_id)
@@ -82,6 +84,7 @@ CREATE TABLE IF NOT EXISTS validation_results (
     passed BOOLEAN,
     severity ENUM('info','warning','error'),
     message TEXT,
+    status VARCHAR(50) DEFAULT 'OPEN',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (request_id) REFERENCES generation_requests(id) ON DELETE CASCADE,
     INDEX (request_id),

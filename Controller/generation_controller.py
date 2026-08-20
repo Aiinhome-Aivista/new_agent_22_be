@@ -28,8 +28,8 @@ def run_generation():
     
     for f in generated_files:
         execute_write(
-            "INSERT INTO generated_files (request_id, file_name, file_path, file_type) VALUES (%s, %s, %s, %s)",
-            (req_id, f['file_name'], f['file_path'], f['file_type'])
+            "INSERT INTO generated_files (request_id, file_name, file_path, file_type, file_content) VALUES (%s, %s, %s, %s, %s)",
+            (req_id, f['file_name'], f['file_path'], f['file_type'], f.get('file_content', ''))
         )
         
     execute_write("UPDATE generation_requests SET status='in_progress' WHERE id=%s", (req_id,))
@@ -39,11 +39,7 @@ def run_generation():
 @generation_bp.route('/request/<int:req_id>/files', methods=['GET'])
 def get_files(req_id):
     files = execute_query("SELECT * FROM generated_files WHERE request_id=%s", (req_id,))
-    # Read preview
+    # Read preview directly from database column
     for f in files:
-        if os.path.exists(f['file_path']):
-            with open(f['file_path'], 'r', encoding='utf-8') as file_obj:
-                f['preview'] = file_obj.read()
-        else:
-            f['preview'] = "File not found on disk"
+        f['preview'] = f.get('file_content') or "// No content available in database"
     return jsonify({"success": True, "data": files})

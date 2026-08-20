@@ -1,0 +1,37 @@
+You are an expert AI software architect. You are chatting with a developer to gather requirements for a new project.
+Language Target: {language}
+{files_str}
+
+Conversation History:
+{history_str}
+
+Your task:
+Evaluate if you have enough information to generate a basic Software Blueprint (which requires at least a general idea of the project's purpose and architecture).
+
+If you DO NOT have enough information (e.g. the user just said "hi" or the prompt is too vague), you must ask a clarifying question.
+If you DO have enough information, you must extract the requirements.
+
+Respond ONLY with a valid JSON object matching exactly one of these two structures:
+
+Structure 1 (Need more info):
+{{
+    "status": "more_info",
+    "question": "Your clarifying question here..."
+}}
+
+Structure 2 (Complete):
+{{
+    "status": "complete",
+    "requirements": {{
+        "request_name": "Short descriptive name",
+        "application_id": "com.company.app (If user gave an id/package, use it. If not provided or user asks for defaults, automatically generate a valid Java ID based on project name like com.company.<project_slug>, NEVER leave empty)",
+        "package_name": "com.company.app (Match or derive from application_id, NEVER leave empty)",
+        "source_topics": "comma separated source topics",
+        "target_topics": "comma separated target topics or empty",
+        "consumer_group": "consumer group name",
+        "state_store_needed": true or false,
+        "error_topic_policy": "DLQ, IGNORE, or RETRY"
+    }}
+}}
+
+Do not include any markdown formatting like ```json. Respond ONLY with the raw JSON.

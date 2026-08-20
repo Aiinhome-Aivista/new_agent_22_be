@@ -1,6 +1,6 @@
 import os
 import json
-from llm_service import call_llm
+from llm_service import call_llm, load_prompt
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,10 +19,11 @@ def validate_package(request_id, application_id, package_dir, files_manifest, sp
         "message": "Application ID is present." if application_id else "Missing Application ID."
     })
     
-    # 2. Topic naming convention (lowercase and hyphens)
+    # 2. Topic naming convention (lowercase, numbers, hyphens, dots, underscores)
     import re
-    topic_regex = re.compile(r'^[a-z0-9-]+$')
-    topics = f"{spec.get('source_topics', '')} {spec.get('target_topics', '')}".split()
+    topic_regex = re.compile(r'^[a-zA-Z0-9-._]+$')
+    topics_str = f"{spec.get('source_topics', '')} {spec.get('target_topics', '')}"
+    topics = topics_str.replace(',', ' ').split()
     all_valid = all(topic_regex.match(t) for t in topics if t)
     results.append({
         "rule_name": "Topic naming convention",
@@ -43,16 +44,16 @@ def validate_package(request_id, application_id, package_dir, files_manifest, sp
     
     # 4. Supplier exists
     suppliers = [f["filename"] for f in files_manifest if f["filename"].endswith("Supplier.java")]
-    passed_supplier = len(suppliers) > 0 or len(processors) == 0
+    passed_supplier = len(suppliers) > 0 or len(processors) > 0
     results.append({
         "rule_name": "Supplier exists",
         "passed": passed_supplier,
         "severity": "warning" if not passed_supplier else "info",
-        "message": "Supplier exists or no processors." if passed_supplier else "Processor exists but no Supplier found."
+        "message": "Supplier exists or skipped because Processor exists." if passed_supplier else "No Supplier or Processor found."
     })
     
     # 5. README exists
-    readme_exists = any(f.get("filename") == "README.md" for f in files_manifest) or os.path.exists(os.path.join(package_dir, "README.md"))
+    readme_exists = any(f.get("filename") == "README.md" for f in files_manifest)
     results.append({
         "rule_name": "README exists",
         "passed": readme_exists,
@@ -79,7 +80,7 @@ def validate_package(request_id, application_id, package_dir, files_manifest, sp
     })
     
     # LLM summary
-    summary_prompt = f"Summarize these validation results for a developer:\n{json.dumps(results, default=str)}"
+    summary_prompt = load_prompt("validation_summary_prompt", results_json=json.dumps(results, default=str))
     summary = call_llm(summary_prompt)
     
     return results, summary

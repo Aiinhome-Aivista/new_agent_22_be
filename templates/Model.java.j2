@@ -1,0 +1,23 @@
+package {{ package_name }};
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+
+import java.io.Serializable;
+import java.util.Map;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Model implements Serializable {
+    private String id;
+    private String status;
+    private String type;
+    private Double amount;
+    private String accountId;
+    private String timestamp;
+    private Map<String, Object> metadata;
+}

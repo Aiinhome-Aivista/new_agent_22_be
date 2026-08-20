@@ -1,0 +1,2 @@
+Summarize these validation results for a developer:
+{results_json}
