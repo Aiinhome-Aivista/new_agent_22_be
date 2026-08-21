@@ -2,6 +2,7 @@ import json
 import logging
 from db import execute_query, execute_write
 from llm_service import call_llm, load_prompt
+from agents.validation_agent import get_dynamic_validation_rules
 from config import PACKAGE_OUTPUT_DIR
 import os
 
@@ -19,8 +20,11 @@ def fix_package(request_id, rule_name, message):
         
     files_json = json.dumps([{"file_name": f["file_name"], "file_content": f["file_content"]} for f in gen_files])
     
-    # 2. Call LLM to fix
-    prompt = load_prompt("auto_fix_prompt", rule_name=rule_name, message=message, files_json=files_json)
+    # 2. Get the full validation rules context
+    rules_text = get_dynamic_validation_rules()
+    
+    # 3. Call LLM to fix
+    prompt = load_prompt("auto_fix_prompt", rule_name=rule_name, message=message, files_json=files_json, validation_rules=rules_text)
     
     logger.info(f"Requesting auto-fix for rule: {rule_name}")
     response = call_llm(prompt)

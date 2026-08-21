@@ -3,6 +3,9 @@ You are an expert AI software developer. A generated code package has failed a v
 Failed Rule: {rule_name}
 Error Message: {message}
 
+For your reference, here are all the STRICT validation rules the project enforces:
+{validation_rules}
+
 Here are the current files in the package:
 ======================================================
 {files_json}
