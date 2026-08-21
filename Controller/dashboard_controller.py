@@ -56,19 +56,6 @@ def get_metrics(role):
             cursor.execute("SELECT COUNT(*) as c FROM generation_requests WHERE status = 'rejected'")
             metrics['rejected'] = cursor.fetchone()['c']
             
-        elif role == 'devops':
-            cursor.execute("SELECT COUNT(*) as c FROM packages")
-            metrics['package_history'] = cursor.fetchone()['c']
-            
-            cursor.execute("SELECT COUNT(*) as c FROM generation_requests WHERE status = 'approved'")
-            metrics['deployments'] = cursor.fetchone()['c']
-            
-            cursor.execute("SELECT COUNT(*) as c FROM generation_requests")
-            metrics['environment_status'] = cursor.fetchone()['c']
-            
-            cursor.execute("SELECT COUNT(*) as c FROM validation_results WHERE passed = TRUE")
-            metrics['configuration_health'] = cursor.fetchone()['c']
-            
     finally:
         if 'cursor' in locals() and cursor is not None:
             cursor.close()

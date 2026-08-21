@@ -1,34 +1,59 @@
 package {{ package_name }};
 
+import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.KStream;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 {% if state_store_needed %}
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
 {% endif %}
 
-@Configuration
+@Component
 @Slf4j
 public class {{ processor_class_name }} {
 
     private final {{ handler_class_name }} handler;
 
+    @Value("${app.topics.source}")
+    private String sourceTopic;
+
+    @Value("${app.topics.target}")
+    private String targetTopic;
+
     public {{ processor_class_name }}({{ handler_class_name }} handler) {
         this.handler = handler;
     }
 
-    @Bean
-    public java.util.function.Function<KStream<String, String>, KStream<String, String>> process() {
-        return input -> input
-            .peek((key, value) -> log.info("Received key: {}, value: {}", key, value))
-            .mapValues(handler::handle)
+    @Autowired
+    public void buildPipeline(StreamsBuilder streamsBuilder) {
+        log.info("Building Kafka Streams Pipeline for Source: {}, Target: {}", sourceTopic, targetTopic);
+        
+        // TODO for LLM: Use multiple sources/targets if specified in the blueprint.
+        // Implement actual stateful aggregation, windowing, or joins if required.
+        KStream<String, String> stream = streamsBuilder.stream(sourceTopic);
+
+        stream
+            .peek((key, value) -> log.debug("Received key: {}, value: {}", key, value))
+            .mapValues(value -> {
+                try {
+                    return handler.handle(value);
+                } catch (Exception e) {
+                    log.error("Failed to process event. Sending to DLQ.", e);
+                    // TODO for LLM: Implement actual DLQ routing branch here
+                    return null;
+                }
+            })
+            .filter((key, value) -> value != null)
             {% if state_store_needed %}
+            // Example of state store usage - modify as needed based on blueprint
             .groupByKey()
-            .reduce((aggValue, newValue) -> newValue, Materialized.as("{{ application_id }}-store"))
+            .reduce((aggValue, newValue) -> newValue, Materialized.as("{{ application_id }}-state-store"))
             .toStream()
             {% endif %}
-            .peek((key, value) -> log.info("Output key: {}, value: {}", key, value));
+            .peek((key, value) -> log.debug("Output key: {}, value: {}", key, value))
+            .to(targetTopic);
     }
 }

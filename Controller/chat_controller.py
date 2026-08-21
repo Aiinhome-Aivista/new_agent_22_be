@@ -21,8 +21,7 @@ def ask():
     role_contexts = {
         'developer': "You are the Agent 22 Advisory Agent assisting a Developer. Focus your answer on code generation, implementation details, and technical topics.",
         'architect': "You are the Agent 22 Advisory Agent assisting a Solution Architect. Focus your answer on architectural standards, design patterns, and system blueprints.",
-        'techlead': "You are the Agent 22 Advisory Agent assisting a Tech Lead/Reviewer. Focus your answer on code quality, validation reports, and approval criteria.",
-        'devops': "You are the Agent 22 Advisory Agent assisting a DevOps Engineer. Focus your answer on CI/CD pipelines, packaging, deployment configurations, and environments."
+        'techlead': "You are the Agent 22 Advisory Agent assisting a Tech Lead/Reviewer. Focus your answer on code quality, validation reports, and approval criteria."
     }
     
     role_instruction = role_contexts.get(role, role_contexts['developer'])

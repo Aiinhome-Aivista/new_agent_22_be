@@ -1,0 +1,26 @@
+You are an expert AI software developer. A generated code package has failed a validation rule. Your task is to analyze the failure, identify which file(s) need to be modified, and provide the updated file contents.
+
+Failed Rule: {rule_name}
+Error Message: {message}
+
+Here are the current files in the package:
+======================================================
+{files_json}
+======================================================
+
+Task:
+1. Figure out why the rule failed based on the Error Message.
+2. Identify exactly which files need to change (e.g., application.yml to fix Application ID, or README.md to add docs, etc.).
+3. Fix the file contents to satisfy the rule completely. DO NOT modify anything else unrelated to this rule.
+
+Output Format:
+You MUST respond with a raw JSON array of ONLY the files that were modified. Each object in the array must have "file_name" and "file_content".
+Do NOT include files that you did not change. Do NOT wrap in ```json or any other markdown.
+
+Example response:
+[
+  {{
+    "file_name": "application.yml",
+    "file_content": "spring:\n  kafka:\n    streams:\n      application-id: my-fixed-app\n..."
+  }}
+]

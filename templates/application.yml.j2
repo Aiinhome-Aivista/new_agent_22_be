@@ -1,28 +1,22 @@
 spring:
-  cloud:
-    stream:
-      kafka:
-        bindings:
-          process-in-0:
-            consumer:
-              enableDlq: true
-              dlqName: {{ source_topics }}-dlq
-        streams:
-          binder:
-            application-id: {{ application_id }}
-            brokers: localhost:9092
-            configuration:
-              default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
-              default.value.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
-              {% if state_store_needed %}
-              state.dir: /tmp/kafka-streams
-              {% endif %}
-      bindings:
-        process-in-0:
-          destination: {{ source_topics }}
-          group: {{ consumer_group }}
-        process-out-0:
-          destination: {{ target_topics }}
-        dlq-out-0:
-          destination: {{ source_topics }}-dlq
+  application:
+    name: {{ application_id }}
+  kafka:
+    bootstrap-servers: localhost:9092
+    streams:
+      application-id: {{ application_id }}
+      properties:
+        default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+        default.value.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+        {% if state_store_needed %}
+        state.dir: /tmp/kafka-streams
+        {% endif %}
+    consumer:
+      group-id: {{ consumer_group }}
+      auto-offset-reset: earliest
 
+app:
+  topics:
+    source: {{ source_topics }}
+    target: {{ target_topics }}
+    dlq: {{ source_topics }}-dlq

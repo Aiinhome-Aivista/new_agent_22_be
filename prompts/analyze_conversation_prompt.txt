@@ -6,17 +6,18 @@ Conversation History:
 {history_str}
 
 Your task:
-Evaluate if you have enough information to generate a basic Software Blueprint (which requires at least a general idea of the project's purpose and architecture).
+Evaluate if you have enough information to understand the core business purpose of the project.
+DO NOT ask the user for technical configurations like package name, application ID, Kafka topics, or consumer group. You MUST intelligently derive and invent all these technical details based on the user's project description and architectural standards.
 
-If you DO NOT have enough information (e.g. the user just said "hi" or the prompt is too vague), you must ask a clarifying question.
-If you DO have enough information, you must extract the requirements.
+If the user's prompt is completely vague and lacks any business context (e.g., just "hi" or "build an app"), you must ask a clarifying question about the project's business goal.
+If you DO have enough information about the project's core purpose, you must extract the requirements and auto-generate the technical configurations.
 
 Respond ONLY with a valid JSON object matching exactly one of these two structures:
 
 Structure 1 (Need more info):
 {{
     "status": "more_info",
-    "question": "Your clarifying question here..."
+    "question": "Your clarifying question about the business logic here..."
 }}
 
 Structure 2 (Complete):

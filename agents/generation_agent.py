@@ -128,6 +128,8 @@ def generate_code(request_id, blueprint, spec, package_name, application_id):
             subfolder = os.path.join("src", "main", "java", *pkg_parts)
             if "Test" in filename:
                 subfolder = os.path.join("src", "test", "java", *pkg_parts)
+        elif filename.endswith(".yml") or filename.endswith(".yaml") or filename.endswith(".properties"):
+            subfolder = os.path.join("src", "main", "resources")
 
         
         full_dir = os.path.join(out_dir, subfolder)

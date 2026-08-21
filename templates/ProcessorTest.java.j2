@@ -1,13 +1,74 @@
 package {{ package_name }};
 
+import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.streams.StreamsBuilder;
+import org.apache.kafka.streams.StreamsConfig;
+import org.apache.kafka.streams.TestInputTopic;
+import org.apache.kafka.streams.TestOutputTopic;
+import org.apache.kafka.streams.TopologyTestDriver;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.util.Properties;
+
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 public class {{ processor_class_name }}Test {
 
+    private TopologyTestDriver testDriver;
+    private TestInputTopic<String, String> inputTopic;
+    private TestOutputTopic<String, String> outputTopic;
+
+    @Mock
+    private {{ handler_class_name }} handler;
+
+    private {{ processor_class_name }} processor;
+
+    @BeforeEach
+    public void setup() {
+        MockitoAnnotations.openMocks(this);
+        
+        processor = new {{ processor_class_name }}(handler);
+        // LLM TODO: You may need to use reflection or setter to inject @Value properties like topics for tests
+
+        StreamsBuilder builder = new StreamsBuilder();
+        processor.buildPipeline(builder);
+
+        Properties props = new Properties();
+        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "test-app");
+        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "dummy:1234");
+        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
+        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
+
+        testDriver = new TopologyTestDriver(builder.build(), props);
+
+        // LLM TODO: Map these strictly to the source/target topics specified in the blueprint
+        inputTopic = testDriver.createInputTopic("source-topic", Serdes.String().serializer(), Serdes.String().serializer());
+        outputTopic = testDriver.createOutputTopic("target-topic", Serdes.String().deserializer(), Serdes.String().deserializer());
+    }
+
+    @AfterEach
+    public void tearDown() {
+        if (testDriver != null) {
+            testDriver.close();
+        }
+    }
+
     @Test
-    public void testProcessorInstantiates() {
-        {{ processor_class_name }} processor = new {{ processor_class_name }}(null);
-        assertNotNull(processor);
+    public void testProcessorTopology() {
+        // Mock handler behavior
+        when(handler.handle(anyString())).thenReturn("processed-value");
+
+        // Send a test event
+        inputTopic.pipeInput("test-key", "test-value");
+
+        // Verify output
+        // LLM TODO: Expand these tests to test error handling, DLQ routing, state stores, etc.
+        assertNotNull(outputTopic);
     }
 }

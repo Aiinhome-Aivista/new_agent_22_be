@@ -24,8 +24,7 @@ def login():
         system_role_map = {
             'Developer': 'developer',
             'Solution Architect': 'architect',
-            'Tech Lead': 'techlead',
-            'Platform / DevOps Engineer': 'devops'
+            'Tech Lead': 'techlead'
         }
         
         # Define RBAC mappings
@@ -36,15 +35,13 @@ def login():
         permissions_map = {
             'developer': ['create_request', 'generate_code', 'download_package'],
             'architect': ['review_pattern', 'modify_blueprint', 'review_architecture'],
-            'techlead': ['approve', 'reject', 'rework', 'validation', 'audit'],
-            'devops': ['package', 'deployment', 'configuration', 'environment']
+            'techlead': ['approve', 'reject', 'rework', 'validation', 'audit']
         }
         
         dashboard_map = {
             'developer': '/developer/dashboard',
             'architect': '/architect/dashboard',
-            'techlead': '/techlead/dashboard',
-            'devops': '/devops/dashboard'
+            'techlead': '/techlead/dashboard'
         }
         
         menu_map = {
@@ -70,15 +67,6 @@ def login():
                 {'name': 'Approvals', 'path': '/approvals', 'icon': 'CheckBadgeIcon'},
                 {'name': 'Audit Trail', 'path': '/audit', 'icon': 'ListBulletIcon'},
                 {'name': 'Reports', 'path': '/reports', 'icon': 'DocumentChartBarIcon'}
-            ],
-            'devops': [
-                {'name': 'Dashboard', 'path': '/devops/dashboard', 'icon': 'ChartBarIcon'},
-                {'name': 'Packaging', 'path': '/packages', 'icon': 'CubeIcon'},
-                {'name': 'Environment', 'path': '/environment', 'icon': 'ServerIcon'},
-                {'name': 'Configuration', 'path': '/config', 'icon': 'CogIcon'},
-                {'name': 'Deployment', 'path': '/deploy', 'icon': 'RocketLaunchIcon'},
-                {'name': 'CI/CD', 'path': '/cicd', 'icon': 'ArrowPathRoundedSquareIcon'},
-                {'name': 'Logs', 'path': '/logs', 'icon': 'CommandLineIcon'}
             ]
         }
         

@@ -13,5 +13,5 @@ Extract the following details and return ONLY a valid JSON object with exactly t
 - state_store_needed (boolean: true if stateful processing is mentioned)
 - error_topic_policy (string: DLQ, IGNORE, or RETRY)
 
-If any detail is not explicitly mentioned, make a reasonable guess based on context.
+If any technical detail (like package_name, application_id, topics) is not explicitly mentioned by the user, DO NOT leave it empty. You MUST intelligently invent and generate a reasonable value for it based on the project context and standard conventions.
 Respond ONLY with valid JSON. Do not include markdown formatting like ```json.

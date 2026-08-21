@@ -3,7 +3,7 @@ Your task is to implement robust, production-ready code for a specific file in a
 
 File Name: {filename}
 File Purpose: {purpose}
-Frameworks: Spring Boot 3, Kafka Streams / Spring Kafka
+Frameworks: Spring Boot 3, Kafka Streams (Native StreamsBuilder approach)
 
 Here is the overall architectural blueprint for the project to provide you with context:
 [Class Design & Logic]
@@ -17,9 +17,11 @@ Here is the initial basic skeleton for this file (auto-generated from a Jinja2 t
 {skeleton_code}
 ```
 
-Instructions:
+STRICT INSTRUCTIONS (Violating these will cause system compilation failure):
 1. Provide the complete, final source code for the file `{filename}`.
-2. The code must be highly robust (70-80% complete project logic), incorporating the specific business logic, data flow, topics, and methods described in the Blueprint's Class Design.
-3. If it is a Java class, ensure proper imports, exception handling, logging (SLF4J), and Spring annotations (@Component, @Service, @Configuration, etc.) are included.
-4. If it is a configuration file (`application.yml` or `pom.xml`), ensure all necessary dependencies or properties required by the Blueprint are present.
-5. DO NOT provide any markdown formatting or explanations. Output ONLY the raw code so it can be saved directly to the file. No ```java or ``` wrappers, just the raw source code text.
+2. COMPILE INTEGRITY: If you are generating a Processor class and you invoke methods on a Handler (like `handler.aggregate(...)` or `handler.processOverview(...)`), you MUST implement those exact methods when you generate the Handler class. The code must be 100% syntactically correct and compilable.
+3. BUSINESS LOGIC: Do not output generic empty switch cases or simple log statements. Implement actual stateful aggregation, windowing, joins, and data manipulation as defined by the Blueprint context. 
+4. ERROR HANDLING: Do not swallow exceptions with a generic `RuntimeException`. Use domain-specific exceptions (e.g., `ValidationException`) and route failures logically to the DLQ branch within your StreamsBuilder topology.
+5. TESTING: If generating a Test class, provide robust unit tests covering state stores and branch routing using `TopologyTestDriver`. Do not just output `contextLoads()`.
+6. ARCHITECTURE: We exclusively use Native Spring Kafka Streams (`StreamsBuilder`). DO NOT use Spring Cloud Stream (`Function<KStream,KStream>` or `spring-cloud-stream-binder-kafka-streams`).
+7. DO NOT provide any markdown formatting or explanations. Output ONLY the raw code so it can be saved directly to the file. No ```java or ``` wrappers, just the raw source code text.
