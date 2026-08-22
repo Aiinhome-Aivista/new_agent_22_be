@@ -44,13 +44,13 @@ def get_metrics(role):
             metrics['knowledge_updates'] = cursor.fetchone()['c']
             
         elif role == 'techlead':
-            cursor.execute("SELECT COUNT(*) as c FROM generation_requests WHERE status IN ('validated', 'packaged')")
+            cursor.execute("SELECT COUNT(*) as c FROM generation_requests WHERE status = 'validated'")
             metrics['pending_reviews'] = cursor.fetchone()['c']
             
             cursor.execute("SELECT COUNT(*) as c FROM validation_results")
             metrics['validation_reports'] = cursor.fetchone()['c']
             
-            cursor.execute("SELECT COUNT(*) as c FROM generation_requests WHERE status = 'approved'")
+            cursor.execute("SELECT COUNT(*) as c FROM generation_requests WHERE status IN ('approved', 'packaged')")
             metrics['approvals'] = cursor.fetchone()['c']
             
             cursor.execute("SELECT COUNT(*) as c FROM generation_requests WHERE status = 'rejected'")

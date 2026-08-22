@@ -42,8 +42,24 @@ def fix_package(request_id, rule_name, message):
         elif response.startswith("```"):
             response = response.replace("```", "").strip()
             
-        fixed_files = json.loads(response)
-        
+        try:
+            fixed_files = json.loads(response, strict=False)
+        except json.JSONDecodeError as je:
+            logger.warning(f"Failed to parse JSON directly, attempting basic repair. Error: {je}")
+            # If response is truncated, we can't easily fix without a library, but let's try 
+            # to replace literal newlines with \\n just in case strict=False didn't catch everything or it was truncated
+            try:
+                # Basic escaping of literal newlines within quotes could be complex. 
+                # Let's just try to close the array if it's missing.
+                if not response.rstrip().endswith("]"):
+                    if not response.rstrip().endswith("}"):
+                        response += '"}]'
+                    else:
+                        response += "]"
+                fixed_files = json.loads(response, strict=False)
+            except Exception as e2:
+                logger.error(f"Failed to repair JSON: {e2}")
+                raise je
         if not isinstance(fixed_files, list) or len(fixed_files) == 0:
             logger.info("LLM did not return any files to fix.")
             return False

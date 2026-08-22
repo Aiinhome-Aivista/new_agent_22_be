@@ -13,7 +13,7 @@ def generate_code(request_id, blueprint, spec, package_name, application_id):
     Renders Jinja2 templates deterministically based on blueprint and spec.
     """
     out_dir = os.path.join(PACKAGE_OUTPUT_DIR, str(request_id))
-    os.makedirs(out_dir, exist_ok=True)
+    # Removed physical directory creation since code paths are virtual
     
     template_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'templates')
     env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir))

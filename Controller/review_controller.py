@@ -23,6 +23,12 @@ def add_review():
         execute_write("UPDATE blueprints SET status='draft' WHERE request_id=%s", (req_id,))
     else:
         execute_write("UPDATE generation_requests SET status=%s WHERE id=%s", (decision, req_id))
+        if decision == 'approved':
+            try:
+                from agents.orchestrator_agent import start_packaging_thread
+                start_packaging_thread(req_id)
+            except Exception as e:
+                print(f"Error starting packaging thread: {e}")
         
     return jsonify({"success": True, "message": "Review recorded"})
 

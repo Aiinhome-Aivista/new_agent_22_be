@@ -19,6 +19,7 @@ Task:
 Output Format:
 You MUST respond with a raw JSON array of ONLY the files that were modified. Each object in the array must have "file_name" and "file_content".
 Do NOT include files that you did not change. Do NOT wrap in ```json or any other markdown.
+CRITICAL: You MUST escape all newlines in the file_content string as \\n. Do not output literal newlines inside the JSON string value. Ensure the JSON is completely closed and valid.
 
 Example response:
 [
