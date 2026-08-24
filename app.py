@@ -23,6 +23,7 @@ try:
     from Controller.standards_controller import standards_bp
     from Controller.env_config_controller import env_config_bp
     from Controller.techlead_controller import techlead_bp
+    from Controller.project_controller import project_bp
 except ImportError as e:
     logging.warning(f"Failed to import controllers initially (they may not exist yet): {e}")
 
@@ -46,6 +47,8 @@ try:
     app.register_blueprint(standards_bp, url_prefix="/api/standards")
     app.register_blueprint(env_config_bp, url_prefix="/api/environments")
     app.register_blueprint(techlead_bp, url_prefix="/api/techlead")
+    app.register_blueprint(project_bp, url_prefix="/api/projects")
+
 except NameError as e:
     logging.warning("Some blueprints were not registered because they are not yet created.")
 

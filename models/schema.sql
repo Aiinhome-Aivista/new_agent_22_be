@@ -163,3 +163,29 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     entity_id VARCHAR(255),
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS projects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    client VARCHAR(255) DEFAULT 'pwc',
+    health_status ENUM('Healthy', 'At Risk', 'Critical') DEFAULT 'At Risk',
+    health_score INT DEFAULT 40,
+    start_date DATE,
+    end_date DATE,
+    status ENUM('ACTIVE', 'CLOSED') DEFAULT 'ACTIVE',
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS project_tracks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    track_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    status ENUM('ACTIVE', 'CLOSED') DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    INDEX (project_id)
+);
+
+

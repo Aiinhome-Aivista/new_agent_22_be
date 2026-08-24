@@ -28,8 +28,26 @@ def write_audit(request_id, agent_name, action, input_sum, output_sum, error="")
         (request_id, agent_name, action, str(input_sum), str(output_sum), error)
     )
 
+def ensure_pattern_matches_table():
+    try:
+        execute_write("""
+            CREATE TABLE IF NOT EXISTS pattern_matches (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                request_id INT NOT NULL,
+                pattern_type VARCHAR(255),
+                source_reference VARCHAR(255),
+                similarity_score FLOAT,
+                cited_text TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX (request_id)
+            )
+        """)
+    except Exception as e:
+        pass
+
 def run_pipeline(request_id, job_id, draft_mode=False):
     try:
+        ensure_pattern_matches_table()
         update_job_status(job_id, 'running', 'Initialization', 'Started pipeline execution')
         
         # 1. Fetch Request
@@ -50,10 +68,13 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         update_job_status(job_id, 'running', 'Pattern Retrieval', 'Querying knowledge base')
         patterns = retrieve_patterns(spec)
         for p in patterns:
-            execute_write(
-                "INSERT INTO pattern_matches (request_id, pattern_type, source_reference, similarity_score, cited_text) VALUES (%s, %s, %s, %s, %s)",
-                (request_id, p['pattern_type'], p['source_reference'], p['similarity_score'], p['cited_text'])
-            )
+            try:
+                execute_write(
+                    "INSERT INTO pattern_matches (request_id, pattern_type, source_reference, similarity_score, cited_text) VALUES (%s, %s, %s, %s, %s)",
+                    (request_id, p['pattern_type'], p['source_reference'], p['similarity_score'], p['cited_text'])
+                )
+            except Exception as err:
+                print(f"Pattern match write error: {err}")
         write_audit(request_id, "Pattern Retrieval", "Retrieve", "Spec", f"Found {len(patterns)} patterns")
         
         # 4. Blueprint Agent

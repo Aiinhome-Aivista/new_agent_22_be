@@ -39,35 +39,20 @@ def login():
         }
         
         dashboard_map = {
-            'developer': '/developer/dashboard',
-            'architect': '/architect/dashboard',
-            'techlead': '/techlead/dashboard'
+            'developer': '/dashboard-overview',
+            'architect': '/dashboard-overview',
+            'techlead': '/dashboard-overview'
         }
         
+        directory_menu = [
+            {'name': 'Dashboard', 'path': '/dashboard-overview', 'icon': 'ChartBarIcon'},
+            {'name': 'Projects', 'path': '/projects', 'icon': 'FolderIcon'}
+        ]
+        
         menu_map = {
-            'developer': [
-                {'name': 'Dashboard', 'path': '/developer/dashboard', 'icon': 'ChartBarIcon'},
-                {'name': 'New Request', 'path': '/request/new', 'icon': 'PlusIcon'},
-                {'name': 'My Requests', 'path': '/requests', 'icon': 'FolderIcon'},
-                {'name': 'Generation Progress', 'path': '/progress', 'icon': 'CpuChipIcon'},
-                {'name': 'Generated Packages', 'path': '/packages', 'icon': 'CubeIcon'},
-                {'name': 'Advisor Chat', 'path': '/chat', 'icon': 'ChatBubbleLeftIcon'}
-            ],
-            'architect': [
-                {'name': 'Dashboard', 'path': '/architect/dashboard', 'icon': 'ChartBarIcon'},
-                {'name': 'Blueprint Reviews', 'path': '/review/blueprint', 'icon': 'RectangleGroupIcon'},
-                {'name': 'Architecture Standards', 'path': '/standards', 'icon': 'BuildingLibraryIcon'},
-                {'name': 'Pending Approvals', 'path': '/review/queue', 'icon': 'ClipboardDocumentCheckIcon'},
-                {'name': 'Advisor Chat', 'path': '/chat', 'icon': 'ChatBubbleLeftIcon'}
-            ],
-            'techlead': [
-                {'name': 'Dashboard', 'path': '/techlead/dashboard', 'icon': 'ChartBarIcon'},
-                {'name': 'Validation Reports', 'path': '/validation', 'icon': 'ClipboardDocumentCheckIcon'},
-                {'name': 'Review Queue', 'path': '/review/queue', 'icon': 'InboxIcon'},
-                {'name': 'Approvals', 'path': '/approvals', 'icon': 'CheckBadgeIcon'},
-                {'name': 'Audit Trail', 'path': '/audit', 'icon': 'ListBulletIcon'},
-                {'name': 'Reports', 'path': '/reports', 'icon': 'DocumentChartBarIcon'}
-            ]
+            'developer': directory_menu,
+            'architect': directory_menu,
+            'techlead': directory_menu
         }
         
         payload = {

@@ -16,77 +16,113 @@ def trigger_ingest():
         print(f"Error running ingest: {e}")
         return False
 
+def ensure_standards_track_columns():
+    try:
+        cols = execute_query("SHOW COLUMNS FROM architecture_standards")
+        col_names = [c['Field'] for c in cols] if cols else []
+        if 'track_id' not in col_names:
+            execute_write("ALTER TABLE architecture_standards ADD COLUMN track_id INT")
+        if 'folder' not in col_names:
+            execute_write("ALTER TABLE architecture_standards ADD COLUMN folder VARCHAR(255) DEFAULT 'standards'")
+        if 'created_by' not in col_names:
+            execute_write("ALTER TABLE architecture_standards ADD COLUMN created_by VARCHAR(255)")
+    except Exception as e:
+        pass
+
 @standards_bp.route('/', methods=['GET'])
 def list_standards():
+    ensure_standards_track_columns()
+    track_id = request.args.get('track_id')
+    
+    # 1. Fetch DB standards for this track (including fallback global standards)
+    if track_id:
+        db_standards = execute_query("SELECT * FROM architecture_standards WHERE track_id = %s OR track_id IS NULL ORDER BY id DESC", (track_id,))
+    else:
+        db_standards = execute_query("SELECT * FROM architecture_standards ORDER BY id DESC")
+    
+    # 2. If no DB standards exist at all, populate default standards into DB
+    if not db_standards and os.path.exists(KB_DIR):
+        for root, dirs, files in os.walk(KB_DIR):
+            for file in files:
+                if file.endswith('.md'):
+                    file_path = os.path.join(root, file)
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    title = file.replace('.md', '').replace('_', ' ').replace('-', ' ').title()
+                    folder_name = os.path.basename(root)
+                    if folder_name not in ['standards', 'validation_rules', 'sample_scripts']:
+                        folder_name = 'standards'
+                    
+                    execute_write(
+                        "INSERT INTO architecture_standards (title, description, folder, created_by, track_id) VALUES (%s, %s, %s, %s, %s)",
+                        (title, content, folder_name, 'System Architect', track_id)
+                    )
+        if track_id:
+            db_standards = execute_query("SELECT * FROM architecture_standards WHERE track_id = %s OR track_id IS NULL ORDER BY id DESC", (track_id,))
+        else:
+            db_standards = execute_query("SELECT * FROM architecture_standards ORDER BY id DESC")
+
     standards = []
-    if not os.path.exists(KB_DIR):
-        return jsonify({"success": True, "data": []})
-        
-    for root, dirs, files in os.walk(KB_DIR):
-        for file in files:
-            if file.endswith('.md'):
-                file_path = os.path.join(root, file)
-                rel_path = os.path.relpath(file_path, KB_DIR)
-                
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
+    if db_standards:
+        for item in db_standards:
+            raw_title = item.get('title', 'Standard') or 'Standard'
+            filename_val = raw_title if raw_title.lower().endswith('.md') else f"{raw_title}.md"
+            folder_val = item.get('folder', 'standards') or 'standards'
+            if folder_val not in ['standards', 'validation_rules', 'sample_scripts']:
+                folder_val = 'standards'
 
-                title = file.replace('.md', '').replace('_', ' ').replace('-', ' ').title()
+            standards.append({
+                "id": str(item['id']),
+                "db_id": item['id'],
+                "filename": filename_val,
+                "folder": folder_val,
+                "content": item.get('description', '') or '',
+                "track_id": item.get('track_id'),
+                "created_by": item.get('created_by') or 'Solution Architect'
+            })
 
-                # Sync to MySQL database architecture_standards table if missing
-                db_id = 0
-                try:
-                    existing = execute_query("SELECT id FROM architecture_standards WHERE title=%s OR title=%s", (file, title))
-                    if not existing:
-                        db_id = execute_write("INSERT INTO architecture_standards (title, description) VALUES (%s, %s)", (title, content)) or 0
-                    else:
-                        db_id = existing[0]['id']
-                except Exception as db_err:
-                    print(f"DB sync notice: {db_err}")
-
-                mtime = os.path.getmtime(file_path)
-                standards.append({
-                    "id": rel_path.replace('\\', '/'),
-                    "db_id": db_id,
-                    "filename": file,
-                    "folder": os.path.basename(root),
-                    "content": content,
-                    "mtime": mtime
-                })
-                
-    standards.sort(key=lambda x: (x.get('db_id', 0), x.get('mtime', 0)), reverse=True)
     return jsonify({"success": True, "data": standards})
 
 @standards_bp.route('/', methods=['POST'])
 def save_standard():
-    data = request.json
-    filename = data.get('filename')
+    ensure_standards_track_columns()
+    data = request.json or {}
+    filename = data.get('filename', '').strip()
     folder = data.get('folder', 'standards')
     content = data.get('content', '')
+    track_id = data.get('track_id')
+    created_by = data.get('created_by') or 'Solution Architect'
     
     if not filename:
         return jsonify({"success": False, "message": "Filename is required"}), 400
         
-    if not filename.endswith('.md'):
-        filename += '.md'
-        
+    raw_name = filename[:-3] if filename.lower().endswith('.md') else filename
+    clean_title = raw_name.replace('_', ' ').replace('-', ' ').title()
+    clean_filename = f"{raw_name}.md"
+
     target_dir = os.path.join(KB_DIR, folder)
     os.makedirs(target_dir, exist_ok=True)
     
-    file_path = os.path.join(target_dir, filename)
+    file_path = os.path.join(target_dir, clean_filename)
     with open(file_path, 'w', encoding='utf-8') as f:
         f.write(content)
 
-    created_by = data.get('created_by') or data.get('user_id')
-    title = filename.replace('.md', '').replace('_', ' ').replace('-', ' ').title()
-
-    # Sync to DB architecture_standards table
     try:
-        existing = execute_query("SELECT id FROM architecture_standards WHERE title=%s OR title=%s", (filename, title))
-        if existing:
-            execute_write("UPDATE architecture_standards SET title=%s, description=%s, created_by=%s WHERE id=%s", (title, content, created_by, existing[0]['id']))
+        if track_id:
+            existing = execute_query("SELECT id FROM architecture_standards WHERE (title=%s OR title=%s) AND track_id=%s", (clean_filename, clean_title, track_id))
         else:
-            execute_write("INSERT INTO architecture_standards (title, description, created_by) VALUES (%s, %s, %s)", (title, content, created_by))
+            existing = execute_query("SELECT id FROM architecture_standards WHERE (title=%s OR title=%s) AND track_id IS NULL", (clean_filename, clean_title))
+            
+        if existing:
+            execute_write(
+                "UPDATE architecture_standards SET title=%s, description=%s, folder=%s, created_by=%s, track_id=%s WHERE id=%s", 
+                (clean_title, content, folder, created_by, track_id, existing[0]['id'])
+            )
+        else:
+            execute_write(
+                "INSERT INTO architecture_standards (title, description, folder, created_by, track_id) VALUES (%s, %s, %s, %s, %s)", 
+                (clean_title, content, folder, created_by, track_id)
+            )
     except Exception as db_err:
         print(f"DB save sync error: {db_err}")
         
@@ -96,19 +132,18 @@ def save_standard():
 
 @standards_bp.route('/<path:file_id>', methods=['DELETE'])
 def delete_standard(file_id):
-    file_path = os.path.join(KB_DIR, file_id)
-    if os.path.exists(file_path) and file_path.endswith('.md') and KB_DIR in os.path.abspath(file_path):
-        filename = os.path.basename(file_path)
-        title = filename.replace('.md', '').replace('_', ' ').replace('-', ' ').title()
-        os.remove(file_path)
-
-        # Sync delete from DB architecture_standards table
-        try:
+    try:
+        if file_id.isdigit():
+            execute_write("DELETE FROM architecture_standards WHERE id=%s", (file_id,))
+        else:
+            filename = os.path.basename(file_id)
+            title = filename.replace('.md', '').replace('_', ' ').replace('-', ' ').title()
             execute_write("DELETE FROM architecture_standards WHERE title=%s OR title=%s", (filename, title))
-        except Exception as db_err:
-            print(f"DB delete sync error: {db_err}")
-
-        trigger_ingest()
-        return jsonify({"success": True, "message": "Deleted successfully"})
-    
-    return jsonify({"success": False, "message": "File not found"}), 404
+            file_path = os.path.join(KB_DIR, file_id)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+    except Exception as e:
+        print(f"Error deleting standard: {e}")
+        
+    trigger_ingest()
+    return jsonify({"success": True, "message": "Standard deleted successfully"})

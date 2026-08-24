@@ -91,13 +91,17 @@ def create_requirement():
         normalized_spec['application_id'] = final_app_id
         normalized_spec['package_name'] = final_pkg_name
 
-        # Save request
+        # Save request with track mapping
+        ensure_request_track_columns()
         request_id = execute_write(
-            "INSERT INTO generation_requests (request_name, application_id, package_name, requested_by) VALUES (%s, %s, %s, %s)",
+            "INSERT INTO generation_requests (request_name, application_id, package_name, requested_by, track_id, track_name, project_id) VALUES (%s, %s, %s, %s, %s, %s, %s)",
             (req_name, 
              final_app_id, 
              final_pkg_name, 
-             data.get('requested_by', 'User'))
+             data.get('requested_by', 'User'),
+             data.get('track_id'),
+             data.get('track_name'),
+             data.get('project_id'))
         )
         
         if not request_id:
@@ -145,13 +149,14 @@ def create_requirement():
 
 @requirement_bp.route('/intake-chat', methods=['POST'])
 def intake_chat():
-    messages_str = request.form.get('messages', '[]')
+    data = dict(request.form) if request.form else (request.json or {})
+    messages_str = data.get('messages', '[]')
     try:
         messages = json.loads(messages_str)
     except Exception:
         messages = []
         
-    language = request.form.get('language', 'Java Kafka')
+    language = data.get('language', 'Java Kafka')
     
     if not messages:
         return jsonify({"success": False, "message": "No messages provided"}), 400
@@ -205,13 +210,17 @@ def intake_chat():
             req['application_id'] = final_app_id
             req['package_name'] = final_pkg_name
 
-            # Save request
+            # Save request with track mapping
+            ensure_request_track_columns()
             request_id = execute_write(
-                "INSERT INTO generation_requests (request_name, application_id, package_name, requested_by) VALUES (%s, %s, %s, %s)",
+                "INSERT INTO generation_requests (request_name, application_id, package_name, requested_by, track_id, track_name, project_id) VALUES (%s, %s, %s, %s, %s, %s, %s)",
                 (req_name, 
                  final_app_id, 
                  final_pkg_name, 
-                 'User')
+                 'User',
+                 data.get('track_id'),
+                 data.get('track_name'),
+                 data.get('project_id'))
             )
             
             # Save spec
@@ -254,20 +263,41 @@ def intake_chat():
         traceback.print_exc()
         return jsonify({"success": False, "message": str(e)}), 500
 
+def ensure_request_track_columns():
+    try:
+        cols = execute_query("SHOW COLUMNS FROM generation_requests")
+        col_names = [c['Field'] for c in cols] if cols else []
+        
+        if 'track_id' not in col_names:
+            execute_write("ALTER TABLE generation_requests ADD COLUMN track_id INT")
+        if 'track_name' not in col_names:
+            execute_write("ALTER TABLE generation_requests ADD COLUMN track_name VARCHAR(255)")
+        if 'project_id' not in col_names:
+            execute_write("ALTER TABLE generation_requests ADD COLUMN project_id INT")
+    except Exception as e:
+        pass
+
 @requirement_bp.route('/', methods=['GET'])
 def list_requirements():
+    ensure_request_track_columns()
     status = request.args.get('status')
+    track_id = request.args.get('track_id')
     query = """
         SELECT r.*, s.schema_hints 
         FROM generation_requests r 
         LEFT JOIN generation_specs s ON r.id = s.request_id
+        WHERE 1=1
     """
+    params = []
     if status:
-        query += " WHERE r.status=%s ORDER BY r.created_at DESC"
-        reqs = execute_query(query, (status,))
-    else:
-        query += " ORDER BY r.created_at DESC"
-        reqs = execute_query(query)
+        query += " AND r.status=%s"
+        params.append(status)
+    if track_id:
+        query += " AND r.track_id=%s"
+        params.append(track_id)
+        
+    query += " ORDER BY r.created_at DESC"
+    reqs = execute_query(query, tuple(params))
     return jsonify({"success": True, "data": reqs})
 
 @requirement_bp.route('/<int:req_id>', methods=['GET'])
