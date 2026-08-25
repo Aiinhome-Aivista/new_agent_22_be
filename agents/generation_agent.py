@@ -1,16 +1,19 @@
 import os
 import logging
+import json
 from config import PACKAGE_OUTPUT_DIR
 from llm_service import call_llm
 import re
 
 logger = logging.getLogger(__name__)
 
-def generate_code(request_id, blueprint, spec, package_name, application_id):
+def generate_code(request_id, blueprint, spec, package_name, application_id, patterns=None):
     """
     Generates code using an advanced Agentic approach (Batch XML Prompting) 
     for maximum context retention, 100% accuracy, and high speed.
     """
+    if patterns is None:
+        patterns = []
     out_dir = os.path.join(PACKAGE_OUTPUT_DIR, str(request_id))
     generated_files = []
     
@@ -33,6 +36,8 @@ def generate_code(request_id, blueprint, spec, package_name, application_id):
             try:
                 logger.info(f"Generating batch of {len(batch)} files (Attempt {attempt+1}/{max_retries})...")
                 
+                patterns_json = json.dumps(patterns, default=str)
+                
                 prompt = f"""You are an elite Enterprise Java Kafka Architect.
 Your task is to generate production-ready code for a microservice. By generating multiple files together, you must ensure 100% consistency across classes (e.g. method signatures must match exactly).
 
@@ -46,6 +51,10 @@ Source Topics: {spec.get('source_topics', '')}
 Target Topics: {spec.get('target_topics', '')}
 Consumer Group: {spec.get('consumer_group', '')}
 State Store Needed: {spec.get('state_store_needed', False)}
+
+ARCHITECTURE STANDARDS & RULES:
+You MUST strictly follow these industry standards and custom rules when writing the code:
+{patterns_json}
 
 BLUEPRINT ARCHITECTURE:
 {blueprint.get('class_design', '')}

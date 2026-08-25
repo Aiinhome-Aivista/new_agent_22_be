@@ -115,7 +115,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
                     
         # 5. Generation Agent
         update_job_status(job_id, 'running', 'Generation', 'Rendering Jinja2 templates')
-        generated_files, updated_blueprint = generate_code(request_id, blueprint, spec, req['package_name'], req['application_id'])
+        generated_files, updated_blueprint = generate_code(request_id, blueprint, spec, req['package_name'], req['application_id'], patterns)
         
         # Copy reused files from database
         reused_files = [f for f in updated_blueprint.get("files", []) if f.get("status") == "reuse"]
