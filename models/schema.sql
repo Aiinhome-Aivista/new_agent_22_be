@@ -188,15 +188,3 @@ CREATE TABLE IF NOT EXISTS project_tracks (
     INDEX (project_id)
 );
 
-CREATE TABLE IF NOT EXISTS track_rules (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    track_id INT NOT NULL,
-    rule_name VARCHAR(255) NOT NULL,
-    rule_content TEXT NOT NULL,
-    is_default BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (track_id) REFERENCES project_tracks(id) ON DELETE CASCADE,
-    INDEX (track_id)
-);
-
