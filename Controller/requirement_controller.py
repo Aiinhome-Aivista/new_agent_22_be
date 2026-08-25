@@ -133,7 +133,13 @@ def create_requirement():
                         docs.append(f"File {f['filename']} (Part {idx+1}):\n{chunk}")
             
             if docs:
-                metas = [{"request_id": request_id, "type": "intake"} for _ in docs]
+                track_id_val = -1
+                try:
+                    if data.get('track_id'):
+                        track_id_val = int(data.get('track_id'))
+                except ValueError:
+                    pass
+                metas = [{"request_id": request_id, "type": "intake", "track_id": track_id_val} for _ in docs]
                 ids = [f"req_{request_id}_intake_{i}" for i in range(len(docs))]
                 vs.add_documents(docs, metas, ids)
         except Exception as e:
@@ -248,7 +254,13 @@ def intake_chat():
                             docs.append(f"File {f['filename']} (Part {idx+1}):\n{chunk}")
                 
                 if docs:
-                    metas = [{"request_id": request_id, "type": "intake"} for _ in docs]
+                    track_id_val = -1
+                    try:
+                        if data.get('track_id'):
+                            track_id_val = int(data.get('track_id'))
+                    except ValueError:
+                        pass
+                    metas = [{"request_id": request_id, "type": "intake", "track_id": track_id_val} for _ in docs]
                     ids = [f"req_{request_id}_intake_{i}" for i in range(len(docs))]
                     vs.add_documents(docs, metas, ids)
             except Exception as e:

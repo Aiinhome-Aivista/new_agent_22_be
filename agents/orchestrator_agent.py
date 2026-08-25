@@ -106,7 +106,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         try:
             vs = VectorStore()
             bp_doc = f"Blueprint Design:\n{blueprint.get('class_design', '')}\nRationale:\n{blueprint.get('rationale', '')}"
-            vs.add_documents([bp_doc], [{"request_id": request_id, "type": "blueprint"}], [f"req_{request_id}_bp"])
+            vs.add_documents([bp_doc], [{"request_id": request_id, "type": "blueprint", "track_id": req.get('track_id') or -1}], [f"req_{request_id}_bp"])
         except Exception as e:
             logger.error(f"Failed to add blueprint to VectorStore: {e}")
 
@@ -127,7 +127,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
             content = f.get('file_content', '')
             if content.strip():
                 docs.append(f"Generated File {f['file_name']}:\n{content}")
-                metas.append({"request_id": request_id, "type": "code"})
+                metas.append({"request_id": request_id, "type": "code", "track_id": req.get('track_id') or -1})
                 ids.append(f"req_{request_id}_code_{idx}")
                 
         try:
