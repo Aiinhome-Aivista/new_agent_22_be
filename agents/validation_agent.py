@@ -2,31 +2,41 @@ import os
 import json
 from llm_service import call_llm, load_prompt
 import logging
+from db import execute_query
 
 logger = logging.getLogger(__name__)
 
 KB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'knowledge_base')
 
-def get_dynamic_validation_rules():
+def get_dynamic_validation_rules(track_id=None):
     rules_text = ""
-    target_dir = os.path.join(KB_DIR, 'validation_rules')
-    if os.path.exists(target_dir):
-        for file in os.listdir(target_dir):
-            if file.endswith('.md'):
-                with open(os.path.join(target_dir, file), 'r', encoding='utf-8') as f:
-                    rules_text += f"\n--- Rule File: {file} ---\n"
-                    rules_text += f.read() + "\n"
+    
+    # Query validation rules from DB for this track (or global)
+    if track_id is not None:
+        db_rules = execute_query(
+            "SELECT title, description FROM architecture_standards WHERE folder = 'validation_rules' AND (track_id = %s OR track_id IS NULL)",
+            (track_id,)
+        )
+    else:
+        db_rules = execute_query(
+            "SELECT title, description FROM architecture_standards WHERE folder = 'validation_rules'"
+        )
+
+    if db_rules:
+        for rule in db_rules:
+            rules_text += f"\n--- Rule: {rule.get('title')} ---\n"
+            rules_text += (rule.get('description') or "") + "\n"
     
     if not rules_text.strip():
         rules_text = "No custom rules defined. Ensure basic Java compilation and completeness."
         
     return rules_text
 
-def validate_package(request_id, application_id, package_dir, files_manifest, spec):
+def validate_package(request_id, application_id, package_dir, files_manifest, spec, track_id=None):
     """
     Runs dynamic validation rules against the generated package using LLM.
     """
-    rules_text = get_dynamic_validation_rules()
+    rules_text = get_dynamic_validation_rules(track_id)
     
     prompt = load_prompt(
         "dynamic_validation_prompt",

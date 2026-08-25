@@ -6,11 +6,14 @@ Conversation History:
 {history_str}
 
 Your task:
-Evaluate if you have enough information to understand the core business purpose of the project.
-DO NOT ask the user for technical configurations like package name, application ID, Kafka topics, or consumer group. You MUST intelligently derive and invent all these technical details based on the user's project description and architectural standards.
+Evaluate if the user has provided all the mandatory information required to build an industry-level standard Kafka project.
+The mandatory information includes:
+1. The Project Name
+2. The core User Story or business purpose of the project
+3. Source Topics and Target Topics (if applicable)
 
-If the user's prompt is completely vague and lacks any business context (e.g., just "hi" or "build an app"), you must ask a clarifying question about the project's business goal.
-If you DO have enough information about the project's core purpose, you must extract the requirements and auto-generate the technical configurations.
+If ANY of this mandatory information is completely missing from the conversation history or the attached files, you MUST respond with a short, clarifying question to gather the missing details. Do not invent the core user story, project name, or main topics if they are not provided.
+If the user has provided sufficient information to understand these core elements, extract the requirements. (You may auto-derive secondary technical details like package name or consumer group based on the project name).
 
 Respond ONLY with a valid JSON object matching exactly one of these two structures:
 

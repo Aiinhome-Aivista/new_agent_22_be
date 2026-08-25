@@ -5,6 +5,7 @@ from sentence_transformers import SentenceTransformer
 # Add parent dir to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from rag.vector_store import VectorStore
+from db import execute_query
 
 def chunk_text(text, chunk_size=600, overlap=100):
     chunks = []
@@ -23,6 +24,25 @@ def ingest_knowledge_base():
     if not os.path.exists(kb_dir):
         print(f"Knowledge base directory {kb_dir} not found.")
         return
+
+    # Fetch track IDs from the database
+    db_standards = execute_query("SELECT title, track_id FROM architecture_standards")
+    
+    # Map raw title or filename to track_id
+    track_id_map = {}
+    if db_standards:
+        for row in db_standards:
+            # We match by title which could be the filename with .md or without
+            title = row.get('title', '')
+            track_id = row.get('track_id')
+            if track_id is None:
+                track_id = -1
+                
+            track_id_map[title] = track_id
+            
+            # also map by clean filename just in case
+            raw_title = title if title.lower().endswith('.md') else f"{title}.md"
+            track_id_map[raw_title] = track_id
 
     vector_store = VectorStore()
     documents = []
@@ -46,13 +66,18 @@ def ingest_knowledge_base():
                 elif "error_topic" in file:
                     pattern_type = "error_topic"
 
+                # Get track_id for this file
+                clean_title = file.replace('.md', '').replace('_', ' ').replace('-', ' ').title()
+                track_id = track_id_map.get(file, track_id_map.get(clean_title, -1))
+
                 chunks = chunk_text(content)
                 for i, chunk in enumerate(chunks):
                     documents.append(chunk)
                     metadatas.append({
                         "filename": file,
                         "section_title": f"{file} part {i}",
-                        "pattern_type": pattern_type
+                        "pattern_type": pattern_type,
+                        "track_id": track_id
                     })
                     ids.append(f"doc_{file_id}_{i}")
                 

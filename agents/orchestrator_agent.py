@@ -66,7 +66,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         
         # 3. Pattern Retrieval Agent
         update_job_status(job_id, 'running', 'Pattern Retrieval', 'Querying knowledge base')
-        patterns = retrieve_patterns(spec)
+        patterns = retrieve_patterns(spec, req.get('track_id'))
         for p in patterns:
             try:
                 execute_write(
@@ -92,7 +92,9 @@ def run_pipeline(request_id, job_id, draft_mode=False):
             if bp_row['status'] == 'approved':
                 draft_mode = False
         else:
-            blueprint = generate_blueprint(spec, patterns)
+            existing_files_query = execute_query("SELECT DISTINCT file_name FROM generated_files")
+            existing_files = [f['file_name'] for f in existing_files_query]
+            blueprint = generate_blueprint(spec, patterns, existing_files)
             execute_write(
                 "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, mermaid_diagram, status) VALUES (%s, %s, %s, %s, %s, %s)",
                 (request_id, json.dumps({"files": blueprint.get("files", [])}), blueprint.get("class_design", ""), blueprint.get("rationale", ""), blueprint.get("mermaid_diagram", ""), "draft" if draft_mode else "approved")
@@ -106,7 +108,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         try:
             vs = VectorStore()
             bp_doc = f"Blueprint Design:\n{blueprint.get('class_design', '')}\nRationale:\n{blueprint.get('rationale', '')}"
-            vs.add_documents([bp_doc], [{"request_id": request_id, "type": "blueprint"}], [f"req_{request_id}_bp"])
+            vs.add_documents([bp_doc], [{"request_id": request_id, "type": "blueprint", "track_id": req.get('track_id') or -1}], [f"req_{request_id}_bp"])
         except Exception as e:
             logger.error(f"Failed to add blueprint to VectorStore: {e}")
 
@@ -114,6 +116,19 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         # 5. Generation Agent
         update_job_status(job_id, 'running', 'Generation', 'Rendering Jinja2 templates')
         generated_files, updated_blueprint = generate_code(request_id, blueprint, spec, req['package_name'], req['application_id'])
+        
+        # Copy reused files from database
+        reused_files = [f for f in updated_blueprint.get("files", []) if f.get("status") == "reuse"]
+        for rf in reused_files:
+            past_file = execute_query("SELECT file_content, file_type, file_path FROM generated_files WHERE file_name=%s ORDER BY id DESC LIMIT 1", (rf['filename'],))
+            if past_file:
+                generated_files.append({
+                    "file_name": rf['filename'],
+                    "file_path": past_file[0]['file_path'],
+                    "file_type": past_file[0]['file_type'],
+                    "file_content": past_file[0]['file_content']
+                })
+        
         
         docs = []
         metas = []
@@ -127,7 +142,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
             content = f.get('file_content', '')
             if content.strip():
                 docs.append(f"Generated File {f['file_name']}:\n{content}")
-                metas.append({"request_id": request_id, "type": "code"})
+                metas.append({"request_id": request_id, "type": "code", "track_id": req.get('track_id') or -1})
                 ids.append(f"req_{request_id}_code_{idx}")
                 
         try:
@@ -144,7 +159,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         update_job_status(job_id, 'running', 'Validation', 'Running validation rules')
         out_dir = os.path.join(PACKAGE_OUTPUT_DIR, str(request_id))
         execute_write("DELETE FROM validation_results WHERE request_id=%s", (request_id,))
-        val_results, val_summary = validate_package(request_id, req['application_id'], out_dir, updated_blueprint.get("files", []), spec)
+        val_results, val_summary = validate_package(request_id, req['application_id'], out_dir, updated_blueprint.get("files", []), spec, req.get('track_id'))
 
         
         has_errors = False
