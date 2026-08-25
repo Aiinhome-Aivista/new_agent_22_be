@@ -1,4 +1,4 @@
-Design a Kafka Streams application based on these specs:
+Design a Kafka Streams application based on these specifications:
 {spec_json}
 
 Consider these retrieved patterns/standards:
@@ -15,15 +15,204 @@ Produce a JSON response with exactly this structure:
   "class_design": "Detailed string describing all generated classes and their specific responsibilities...",
   "rationale": "Why this design was chosen...",
   "alternative_designs": ["Alternative option 1...", "Alternative option 2..."],
-  "assumptions": ["Assumed state store because...", "Assumed exact once semantics..."],
-  "mermaid_diagram": "A valid Mermaid.js flowchart (graph TD) visualizing the Kafka streams topology. Strict rules: 1. Source topics at the top. 2. Processors in the middle. 3. Processors must connect horizontally to State Stores using database shapes, e.g. Processor <-->|Queries| Store[(State Store)]. 4. Show conditional branching from the processor to target topics (e.g. Processor -->|Valid| TargetTopic and Processor -->|Error| DLQTopic). Do not just draw a straight line. Use standard mermaid formatting without markdown backticks."
+  "assumptions": ["Assumed state store because...", "Assumed exactly-once semantics..."],
+  "mermaid_diagram": "A valid Mermaid.js flowchart (graph TD) visualizing the Kafka Streams topology. Strict rules: 1. Source topics at the top. 2. Processors in the middle. 3. Processors must connect horizontally to State Stores using database shapes, e.g. Processor <-->|Queries| Store[(State Store)]. 4. Show conditional branching from the processor to target topics (e.g. Processor -->|Valid| TargetTopic and Processor -->|Error| DLQTopic). Do not just draw a straight line. Use standard Mermaid formatting without markdown backticks."
 }}
 
-Ensure you include ALL necessary files for a full production-ready Spring Boot Kafka Streams microservice based on the spec. This MUST include at minimum: pom.xml, the main Application.java class, configuration classes, data models/POJOs, the Processor (e.g. <ClassName>Processor.java), the Supplier (e.g. <ClassName>Supplier.java), the Handler (e.g. <ClassName>Handler.java), a JUnit test class (e.g. <ClassName>Test.java), and application.yml.
-Do NOT copy the generic placeholder <ClassName>. Use the actual business entity name from the spec (e.g. EmployeeProcessor, PaymentSupplier, OrderHandler).
+Ensure you include ALL necessary files for a full production-ready Spring Boot Kafka Streams application based on the complete specification and retrieved architecture standards.
+
+The retrieved architecture standards, validation rules, design patterns, and implementation standards are mandatory requirements. They must be treated as architectural constraints when determining the required project structure.
+
+The generated skeleton MUST be derived from the complete specification and retrieved standards. Do not generate only a representative example or only the first processing flow encountered.
+
+If the retrieved patterns contain sample scripts, example classes, or representative Processor/Supplier/Handler implementations, treat them ONLY as implementation templates. They must NOT be interpreted as the complete project file list.
+
+Determine the required files dynamically from:
+1. The business domains and capabilities defined in the specification.
+2. The events, source topics, target topics, and processing flows defined in the specification.
+3. The architecture components defined in the retrieved standards.
+4. The validation and business rules defined in the retrieved standards.
+5. The stateful-processing requirements defined in the specification or standards.
+6. The error, retry, failure, reconciliation, and recovery requirements defined in the specification or standards.
+7. The agents, services, processors, handlers, or other application components explicitly defined by the specification or standards.
+
+The generated skeleton MUST include, where applicable:
+
+- pom.xml
+- the main Application.java class
+- Kafka configuration classes
+- topic configuration
+- consumer-group configuration
+- application configuration
+- data models/event POJOs
+- Processor layer
+- Supplier layer
+- Handler layer
+- Service layer
+- Agent layer when agents are defined by the specification
+- validation components
+- duplicate detection components
+- event correlation components
+- state-store/stateful processing components
+- error/DLQ/failure handling components
+- retry handling components
+- reconciliation components when required
+- external integration components when required
+- JUnit test classes
+- application.yml
+
+The exact set of files MUST be determined by the specification. Do not create unnecessary classes merely to satisfy a fixed template.
+
+Every major business event or lifecycle flow explicitly defined in the specification must have an appropriate processing path when Kafka event processing is required.
+
+Every application component, service, agent, processor, handler, validator, stateful workflow, or error-handling mechanism explicitly required by the architecture standards must have an appropriate skeleton representation.
+
+Apply the architecture pattern defined by the retrieved standards consistently. For example, if the standards define a Processor → Supplier → Handler pattern, use that pattern for applicable processing flows.
+
+Do not blindly create one Processor, Supplier, and Handler for every topic. Group related events into appropriate domain-level components when the architecture and business requirements allow it.
+
+Validation requirements from the retrieved standards MUST be reflected in the generated skeleton. Include applicable validation such as:
+
+- mandatory-field validation
+- schema validation
+- business-rule validation
+- duplicate detection
+- event ordering validation
+- state validation
+- correlation validation
+- output validation
+- failure validation
+
+Do not silently ignore invalid, malformed, duplicate, or ordering-violating events when the specification or standards require explicit handling.
+
+State-dependent workflows MUST include appropriate Kafka Streams state-store components when required.
+
+Failures MUST have an explicit handling path when required by the specification or standards, such as:
+
+- retry
+- error topic
+- dead-letter topic
+- failure event
+- recovery flow
+- reconciliation flow
+
+Kafka configuration such as topic names, application IDs, consumer groups, partitions, concurrency, state-store names, retry settings, serialization settings, and related properties MUST be externalized through application.yml or configuration classes and MUST NOT be hard-coded inside business logic.
+
+The generated skeleton should be structurally complete and compilable-oriented. Actual business logic, external API integrations, database operations, or AI/LLM implementations may be represented by clearly defined interfaces, stubs, or TODO implementations when their implementation details are not provided by the specification.
+
+Do NOT copy the generic placeholder <ClassName>. Use the actual business entity, domain, capability, or component name derived from the specification.
 
 IMPORTANT FILE CACHING INSTRUCTION:
-If you determine that a file required for this new project is ALREADY in the `existing_files` list, and that file requires ABSOLUTELY NO MODIFICATIONS for this new user story (e.g. standard configuration files, identical model classes), you MUST set its `"status": "reuse"`. The system will then automatically copy the existing code for that file. 
-If the file is in the `existing_files` list but needs modifications for this specific request, or if it is a completely new file, you must set its `"status": "planned"`.
+
+If you determine that a file required for this new project is ALREADY in the existing_files list, and that file requires ABSOLUTELY NO MODIFICATIONS for this new user story, you MUST set its "status": "reuse". The system will then automatically copy the existing code for that file.
+
+If the file is in the existing_files list but needs modifications for this specific request, or if it is a completely new file, you must set its "status": "planned".
+
+IMPORTANT COMPLETENESS RULE:
+
+Before producing the JSON response, derive the complete required file set from the specification and retrieved standards.
+
+Verify that all applicable:
+
+- architecture layers
+- business domains
+- event flows
+- source and target topics
+- processors
+- suppliers
+- handlers
+- agents/services
+- validation components
+- stateful components
+- error/failure paths
+- configuration
+- integrations
+- tests
+
+are represented.
+
+Do not stop after generating only the first Processor/Supplier/Handler flow encountered.
+
+IMPORTANT ARCHITECTURE CONSISTENCY RULE:
+
+The generated project skeleton MUST be consistent with the complete specification and ALL applicable architecture standards, validation rules, design patterns, coding standards, and implementation rules provided in the retrieved patterns/standards.
+
+Do NOT assume, invent, remove, or override an architectural pattern, component, layer, processing flow, validation rule, or technology requirement unless it is explicitly defined by the specification or retrieved standards.
+
+When the retrieved standards define a mandatory architecture pattern or processing chain, every applicable flow MUST follow that pattern consistently.
+
+For example, if the standards define:
+Processor → Supplier → Handler,
+then every applicable flow requiring that pattern must contain the required Processor, Supplier, and Handler components.
+
+If the standards define a different pattern, such as:
+Consumer → Service → Repository,
+or:
+Controller → Service → Repository,
+or any other explicitly defined architecture, follow that pattern instead.
+
+Do NOT force Processor/Supplier/Handler, Controller/Service/Repository, or any other specific pattern when it is not required by the specification or retrieved standards.
+
+For every major event, message, request, command, business capability, integration flow, or processing flow explicitly defined by the specification or standards, verify that all required components are represented.
+
+For each applicable flow, verify the complete architecture chain defined by the standards, including where applicable:
+- input/source
+- topic or transport
+- consumer/processor
+- supplier/service/handler
+- business logic
+- AI/agent component
+- validation
+- transformation/enrichment
+- state management
+- persistence
+- output/target
+- error/failure handling
+- retry/recovery
+- reconciliation
+- external integrations
+
+Only include components that are applicable to the project. Do not create unnecessary components merely to satisfy a generic checklist.
+
+Every explicitly required service, agent, processor, supplier, handler, consumer, producer, repository, validator, stateful component, adapter, integration, or other architectural component MUST have an appropriate class, interface, configuration, or clearly defined implementation boundary in the skeleton.
+
+For every explicitly defined Kafka event or message flow, verify that the corresponding event/model, source topic, processing component, target topic, consumer group, validation, and error/failure path are represented where applicable.
+
+For state-dependent or ordered processing, verify that the required Kafka Streams state store, correlation mechanism, ordering logic, duplicate handling, or reconciliation component is represented when required by the standards.
+
+For every validation rule explicitly defined by the retrieved standards, ensure that the skeleton contains an appropriate validation or enforcement mechanism.
+
+For every failure-handling rule explicitly defined by the retrieved standards, ensure that the skeleton contains the required retry, error topic, DLQ, failure event, recovery, or reconciliation mechanism.
+
+For every AI/agent requirement explicitly defined by the specification or standards, ensure that the corresponding AI capability is represented through an appropriate agent, service, interface, or handler boundary without assuming a specific AI implementation unless one is explicitly required.
+
+Before returning the file list, perform a completeness and consistency check across every applicable architecture flow.
+
+For Kafka event-driven flows, verify the applicable chain such as:
+source event → source topic → consumer/processor → service/supplier/handler/agent → validation/state → target topic → downstream processor
+
+For non-event portions of the same application, verify the corresponding architecture chain defined by the specification and retrieved standards.
+
+The final file list MUST be internally consistent:
+- No required component should be missing.
+- No component should exist without a valid architectural purpose.
+- Related components must follow the defined naming and layering standards.
+- Source and target topics must correspond to the defined event flows.
+- Consumer groups must correspond to the appropriate logical consumers/services.
+- State stores must correspond to actual stateful processing requirements.
+- Error paths must correspond to defined failure scenarios.
+- Tests must cover the generated components and important processing paths where applicable.
+
+The specification and retrieved standards are the source of truth. When multiple standards apply, satisfy all non-conflicting requirements. When standards conflict, identify the conflict in assumptions or rationale and follow the highest-priority or most specific applicable standard.
+
+Do not treat sample scripts, example classes, or previously generated files as the complete architecture unless the specification or standards explicitly require them.
+
+Use sample scripts as implementation references only, while deriving the complete required project structure from the specification and retrieved standards.
+
+IMPORTANT RELEVANCE RULE:
+
+Only generate components that are actually required by the specification or retrieved architecture standards.
+
+Do not assume that every project requires AI agents, state stores, Suppliers, Handlers, reconciliation, DLQs, or other components unless they are required by the specification or retrieved standards.
 
 Respond ONLY with valid JSON.
