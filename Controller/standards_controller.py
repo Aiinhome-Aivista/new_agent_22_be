@@ -264,6 +264,26 @@ def extract_text_from_stream(file_stream, filename):
 
         return f"PDF Extraction Notice: No extractable text found in PDF ({err_msg})."
 
+    elif ext in ['.docx', '.doc']:
+        try:
+            import docx
+            doc = docx.Document(file_stream)
+            paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+            
+            # Extract tables text if present
+            table_lines = []
+            for table in doc.tables:
+                for row in table.rows:
+                    row_txt = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                    if row_txt:
+                        table_lines.append(row_txt)
+            if table_lines:
+                paragraphs.append("\n### Document Tables:\n" + "\n".join(table_lines))
+
+            return "\n\n".join(paragraphs) if paragraphs else "No extractable text found in Word document."
+        except Exception as e:
+            return f"Word (.docx) Extraction Error: {str(e)}"
+
     elif ext in ['.pptx', '.ppt']:
         try:
             import pptx
