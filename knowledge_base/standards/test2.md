@@ -1,3 +1,0 @@
-# New Architecture Standard
-
-Explain the rules here...
