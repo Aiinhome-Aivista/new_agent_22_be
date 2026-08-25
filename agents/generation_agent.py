@@ -38,37 +38,20 @@ def generate_code(request_id, blueprint, spec, package_name, application_id, pat
                 
                 patterns_json = json.dumps(patterns, default=str)
                 
-                prompt = f"""You are an elite Enterprise Java Kafka Architect.
-Your task is to generate production-ready code for a microservice. By generating multiple files together, you must ensure 100% consistency across classes (e.g. method signatures must match exactly).
-
-Package: {package_name}
-
-FILES TO GENERATE NOW:
-{file_descriptions}
-
-INTAKE CONTEXT:
-Source Topics: {spec.get('source_topics', '')}
-Target Topics: {spec.get('target_topics', '')}
-Consumer Group: {spec.get('consumer_group', '')}
-State Store Needed: {spec.get('state_store_needed', False)}
-
-ARCHITECTURE STANDARDS & RULES:
-You MUST strictly follow these industry standards and custom rules when writing the code:
-{patterns_json}
-
-BLUEPRINT ARCHITECTURE:
-{blueprint.get('class_design', '')}
-{blueprint.get('mermaid_diagram', '')}
-
-STRICT INSTRUCTIONS:
-1. Provide the complete, final source code for ALL the requested files dynamically.
-2. 100% Compilation Integrity: No hallucinated methods. The Processor MUST call the correct methods implemented in the Handler.
-3. OUTPUT FORMAT: Wrap the content of EACH file EXACTLY in XML tags:
-<file name="ExactFileName.java">
-// Code here
-</file>
-Do NOT provide markdown wrappers (like ```java) inside or outside the XML tags. ONLY output the XML tags.
-"""
+                from llm_service import load_prompt
+                
+                prompt = load_prompt(
+                    "generation_prompt",
+                    package_name=package_name,
+                    file_descriptions=file_descriptions,
+                    source_topics=spec.get('source_topics', ''),
+                    target_topics=spec.get('target_topics', ''),
+                    consumer_group=spec.get('consumer_group', ''),
+                    state_store_needed=spec.get('state_store_needed', False),
+                    patterns_json=patterns_json,
+                    class_design=blueprint.get('class_design', ''),
+                    mermaid_diagram=blueprint.get('mermaid_diagram', '')
+                )
                 
                 llm_code = call_llm(prompt)
                 if not llm_code:

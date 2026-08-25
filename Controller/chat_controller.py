@@ -36,8 +36,15 @@ def ask():
             context += f"\nBlueprint context: {str(bps[0])}"
             
     try:
+        track_id = data.get('track_id')
         vs = VectorStore()
-        where_clause = {"request_id": int(req_id)} if req_id else None
+        
+        where_clause = None
+        if req_id:
+            where_clause = {"request_id": int(req_id)}
+        elif track_id:
+            where_clause = {"track_id": int(track_id)}
+            
         rag_results = vs.query(question, top_k=2, where_filter=where_clause)
         if rag_results and 'documents' in rag_results and rag_results['documents'] and len(rag_results['documents']) > 0:
             docs = rag_results['documents'][0]
