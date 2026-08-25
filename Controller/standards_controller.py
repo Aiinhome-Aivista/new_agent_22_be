@@ -22,36 +22,23 @@ def ensure_standards_track_columns():
         col_names = [c['Field'] for c in cols] if cols else []
         if 'track_id' not in col_names:
             execute_write("ALTER TABLE architecture_standards ADD COLUMN track_id INT")
+        if 'track_name' in col_names:
+            execute_write("ALTER TABLE architecture_standards DROP COLUMN track_name")
         if 'folder' not in col_names:
             execute_write("ALTER TABLE architecture_standards ADD COLUMN folder VARCHAR(255) DEFAULT 'standards'")
         if 'created_by' not in col_names:
             execute_write("ALTER TABLE architecture_standards ADD COLUMN created_by VARCHAR(255)")
 
-        # Auto-normalize folder for existing standards if unassigned or default
-        rows = execute_query("SELECT id, title, folder FROM architecture_standards")
-        if rows:
-            for r in rows:
-                t = (r.get('title') or '').lower()
-                cur_folder = r.get('folder') or 'standards'
-                new_folder = cur_folder
-                if 'pattern' in t or 'script' in t or 'sample' in t:
-                    new_folder = 'sample_scripts'
-                elif 'validation' in t or 'rule' in t or 'yaml' in t:
-                    new_folder = 'validation_rules'
-                elif 'standard' in t or 'convention' in t or 'naming' in t:
-                    new_folder = 'standards'
-                
-                if new_folder != cur_folder:
-                    execute_write("UPDATE architecture_standards SET folder = %s WHERE id = %s", (new_folder, r['id']))
         # Ensure created_by is never NULL in database
-        execute_write("UPDATE architecture_standards SET created_by = 'System Architect' WHERE created_by IS NULL OR created_by = ''")
+        execute_write("UPDATE architecture_standards SET created_by = '1' WHERE created_by IS NULL OR created_by = ''")
     except Exception as e:
         print(f"Error ensuring standards columns: {e}")
 
 @standards_bp.route('/', methods=['GET'])
 def list_standards():
     ensure_standards_track_columns()
-    track_id = request.args.get('track_id')
+    raw_track_id = request.args.get('track_id')
+    track_id = int(raw_track_id) if raw_track_id and str(raw_track_id).isdigit() else None
     
     # 1. Fetch DB standards for this track (including fallback global standards)
     if track_id:
@@ -74,7 +61,7 @@ def list_standards():
                     
                     execute_write(
                         "INSERT INTO architecture_standards (title, description, folder, created_by, track_id) VALUES (%s, %s, %s, %s, %s)",
-                        (title, content, folder_name, 'System Architect', track_id)
+                        (title, content, folder_name, '1', track_id)
                     )
         if track_id:
             db_standards = execute_query("SELECT * FROM architecture_standards WHERE track_id = %s OR track_id IS NULL ORDER BY id DESC", (track_id,))
@@ -97,7 +84,7 @@ def list_standards():
                 "folder": folder_val,
                 "content": item.get('description', '') or '',
                 "track_id": item.get('track_id'),
-                "created_by": item.get('created_by') or 'Solution Architect'
+                "created_by": item.get('created_by') or '1'
             })
 
     return jsonify({"success": True, "data": standards})
@@ -109,22 +96,17 @@ def save_standard():
     filename = data.get('filename', '').strip()
     folder = data.get('folder', 'standards')
     content = data.get('content', '')
-    track_id = data.get('track_id')
-    created_by = data.get('created_by') or 'Solution Architect'
+    raw_track_id = data.get('track_id')
+    track_id = int(raw_track_id) if raw_track_id and str(raw_track_id).isdigit() else None
+    created_by = str(data.get('created_by') or '1')
     
     if not filename:
         return jsonify({"success": False, "message": "Filename is required"}), 400
         
+    is_edit = data.get('is_edit', False)
     raw_name = filename[:-3] if filename.lower().endswith('.md') else filename
     clean_title = raw_name.replace('_', ' ').replace('-', ' ').title()
     clean_filename = f"{raw_name}.md"
-
-    target_dir = os.path.join(KB_DIR, folder)
-    os.makedirs(target_dir, exist_ok=True)
-    
-    file_path = os.path.join(target_dir, clean_filename)
-    with open(file_path, 'w', encoding='utf-8') as f:
-        f.write(content)
 
     try:
         if track_id:
@@ -132,6 +114,19 @@ def save_standard():
         else:
             existing = execute_query("SELECT id FROM architecture_standards WHERE (title=%s OR title=%s) AND track_id IS NULL", (clean_filename, clean_title))
             
+        if existing and not is_edit:
+            return jsonify({
+                "success": False, 
+                "message": f"A standard with filename '{clean_filename}' already exists. Please choose a different filename."
+            }), 400
+
+        target_dir = os.path.join(KB_DIR, folder)
+        os.makedirs(target_dir, exist_ok=True)
+        
+        file_path = os.path.join(target_dir, clean_filename)
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+
         if existing:
             execute_write(
                 "UPDATE architecture_standards SET title=%s, description=%s, folder=%s, created_by=%s, track_id=%s WHERE id=%s", 
@@ -144,10 +139,209 @@ def save_standard():
             )
     except Exception as db_err:
         print(f"DB save sync error: {db_err}")
+        return jsonify({"success": False, "message": str(db_err)}), 500
         
     trigger_ingest()
     
     return jsonify({"success": True, "message": "Standard saved successfully"})
+
+@standards_bp.route('/upload', methods=['POST'])
+def upload_standard():
+    ensure_standards_track_columns()
+    if 'file' not in request.files:
+        return jsonify({"success": False, "message": "No file uploaded"}), 400
+        
+    file = request.files['file']
+    if not file or file.filename == '':
+        return jsonify({"success": False, "message": "No selected file"}), 400
+        
+    folder = request.form.get('folder', 'standards')
+    raw_track_id = request.form.get('track_id')
+    track_id = int(raw_track_id) if raw_track_id and str(raw_track_id).isdigit() else None
+    created_by = str(request.form.get('created_by') or '1')
+    
+    filename = file.filename.strip()
+    raw_name = filename[:-3] if filename.lower().endswith('.md') else filename
+    clean_title = raw_name.replace('_', ' ').replace('-', ' ').title()
+    clean_filename = f"{raw_name}.md"
+
+    try:
+        content = file.read().decode('utf-8', errors='ignore')
+    except Exception as e:
+        content = f"Uploaded content for {filename}"
+
+    target_dir = os.path.join(KB_DIR, folder)
+    os.makedirs(target_dir, exist_ok=True)
+    
+    file_path = os.path.join(target_dir, clean_filename)
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+    new_id = None
+    try:
+        if track_id:
+            existing = execute_query("SELECT id FROM architecture_standards WHERE (title=%s OR title=%s) AND track_id=%s", (clean_filename, clean_title, track_id))
+        else:
+            existing = execute_query("SELECT id FROM architecture_standards WHERE (title=%s OR title=%s) AND track_id IS NULL", (clean_filename, clean_title))
+            
+        if existing:
+            new_id = existing[0]['id']
+            execute_write(
+                "UPDATE architecture_standards SET title=%s, description=%s, folder=%s, created_by=%s, track_id=%s WHERE id=%s", 
+                (clean_title, content, folder, created_by, track_id, new_id)
+            )
+        else:
+            new_id = execute_write(
+                "INSERT INTO architecture_standards (title, description, folder, created_by, track_id) VALUES (%s, %s, %s, %s, %s)", 
+                (clean_title, content, folder, created_by, track_id)
+            )
+    except Exception as db_err:
+        print(f"DB upload sync error: {db_err}")
+        
+    trigger_ingest()
+    
+    return jsonify({
+        "success": True, 
+        "message": "File uploaded successfully",
+        "data": {
+            "id": str(new_id) if new_id else clean_filename,
+            "filename": clean_filename,
+            "folder": folder,
+            "content": content,
+            "track_id": track_id,
+            "created_by": created_by
+        }
+    })
+
+def extract_text_from_stream(file_stream, filename):
+    ext = os.path.splitext(filename)[1].lower()
+    
+    if ext == '.pdf':
+        err_msg = ""
+        # 1. Try pypdf
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(file_stream)
+            pages = []
+            for i, page in enumerate(reader.pages):
+                txt = page.extract_text() or ''
+                if txt.strip():
+                    pages.append(f"--- Page {i+1} ---\n{txt.strip()}")
+            if pages:
+                return "\n\n".join(pages)
+        except Exception as e:
+            err_msg += f"pypdf: {e}; "
+
+        # 2. Try PyPDF2
+        try:
+            file_stream.seek(0)
+            import PyPDF2
+            reader = PyPDF2.PdfReader(file_stream)
+            pages = []
+            for i, page in enumerate(reader.pages):
+                txt = page.extract_text() or ''
+                if txt.strip():
+                    pages.append(f"--- Page {i+1} ---\n{txt.strip()}")
+            if pages:
+                return "\n\n".join(pages)
+        except Exception as e:
+            err_msg += f"PyPDF2: {e}; "
+
+        # 3. Try pdfplumber
+        try:
+            file_stream.seek(0)
+            import pdfplumber
+            with pdfplumber.open(file_stream) as pdf:
+                pages = []
+                for i, page in enumerate(pdf.pages):
+                    txt = page.extract_text() or ''
+                    if txt.strip():
+                        pages.append(f"--- Page {i+1} ---\n{txt.strip()}")
+                if pages:
+                    return "\n\n".join(pages)
+        except Exception as e:
+            err_msg += f"pdfplumber: {e}; "
+
+        return f"PDF Extraction Notice: No extractable text found in PDF ({err_msg})."
+
+    elif ext in ['.pptx', '.ppt']:
+        try:
+            import pptx
+            prs = pptx.Presentation(file_stream)
+            slides = []
+            for i, slide in enumerate(prs.slides):
+                stext = []
+                for shape in slide.shapes:
+                    if hasattr(shape, "text") and shape.text.strip():
+                        stext.append(shape.text.strip())
+                if stext:
+                    slides.append(f"--- Slide {i+1} ---\n" + "\n".join(stext))
+            return "\n\n".join(slides) if slides else "No extractable text found in PowerPoint presentation."
+        except Exception as e:
+            return f"PowerPoint Extraction Error: {str(e)}"
+
+    elif ext in ['.xlsx', '.xls', '.csv']:
+        try:
+            import pandas as pd
+            if ext == '.csv':
+                df = pd.read_csv(file_stream)
+                return df.to_markdown(index=False) if hasattr(df, 'to_markdown') else df.to_string(index=False)
+            else:
+                excel_file = pd.ExcelFile(file_stream)
+                sheets = []
+                for sname in excel_file.sheet_names:
+                    df = pd.read_excel(excel_file, sheet_name=sname)
+                    tbl = df.to_markdown(index=False) if hasattr(df, 'to_markdown') else df.to_string(index=False)
+                    sheets.append(f"### Sheet: {sname}\n\n{tbl}")
+                return "\n\n".join(sheets)
+        except Exception as e:
+            return f"Excel Extraction Error: {str(e)}"
+
+    else:
+        try:
+            return file_stream.read().decode('utf-8', errors='ignore')
+        except Exception as e:
+            return f"Error reading text file: {str(e)}"
+
+@standards_bp.route('/parse-file', methods=['POST'])
+def parse_uploaded_file():
+    files = request.files.getlist('file') or request.files.getlist('files')
+    if not files or all(f.filename == '' for f in files):
+        return jsonify({"success": False, "message": "No files uploaded"}), 400
+
+    extracted_items = []
+    combined_texts = []
+    
+    for file in files:
+        if file and file.filename:
+            filename = file.filename.strip()
+            raw_name = os.path.splitext(filename)[0]
+            clean_filename = f"{raw_name}.md"
+            extracted_text = extract_text_from_stream(file.stream, filename)
+            
+            extracted_items.append({
+                "filename": clean_filename,
+                "original_filename": filename,
+                "content": extracted_text
+            })
+            combined_texts.append(f"<!-- Source: {filename} -->\n# {filename}\n\n{extracted_text}")
+
+    if len(extracted_items) == 1:
+        return jsonify({
+            "success": True,
+            "filename": extracted_items[0]["filename"],
+            "content": extracted_items[0]["content"],
+            "items": extracted_items,
+            "count": 1
+        })
+    else:
+        return jsonify({
+            "success": True,
+            "filename": f"batch_upload_{len(extracted_items)}_files.md",
+            "content": "\n\n---\n\n".join(combined_texts),
+            "items": extracted_items,
+            "count": len(extracted_items)
+        })
 
 @standards_bp.route('/<path:file_id>', methods=['DELETE'])
 def delete_standard(file_id):
@@ -161,8 +355,6 @@ def delete_standard(file_id):
             file_path = os.path.join(KB_DIR, file_id)
             if os.path.exists(file_path):
                 os.remove(file_path)
+        return jsonify({"success": True, "message": "Standard deleted successfully"})
     except Exception as e:
-        print(f"Error deleting standard: {e}")
-        
-    trigger_ingest()
-    return jsonify({"success": True, "message": "Standard deleted successfully"})
+        return jsonify({"success": False, "message": str(e)}), 500
