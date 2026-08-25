@@ -20,74 +20,58 @@ def chunk_text(text, chunk_size=600, overlap=100):
     return chunks
 
 def ingest_knowledge_base():
-    kb_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'knowledge_base')
-    if not os.path.exists(kb_dir):
-        print(f"Knowledge base directory {kb_dir} not found.")
-        return
-
-    # Fetch track IDs from the database
-    db_standards = execute_query("SELECT title, track_id FROM architecture_standards")
+    # Fetch ALL standards directly from the database
+    db_standards = execute_query("SELECT id, title, description, folder, created_by, track_id FROM architecture_standards")
     
-    # Map raw title or filename to track_id
-    track_id_map = {}
-    if db_standards:
-        for row in db_standards:
-            # We match by title which could be the filename with .md or without
-            title = row.get('title', '')
-            track_id = row.get('track_id')
-            if track_id is None:
-                track_id = -1
-                
-            track_id_map[title] = track_id
-            
-            # also map by clean filename just in case
-            raw_title = title if title.lower().endswith('.md') else f"{title}.md"
-            track_id_map[raw_title] = track_id
+    if not db_standards:
+        print("No standards found in database to ingest.")
+        return
 
     vector_store = VectorStore()
     documents = []
     metadatas = []
     ids = []
 
-    file_id = 0
-    for root, dirs, files in os.walk(kb_dir):
-        for file in files:
-            if file.endswith('.md'):
-                file_path = os.path.join(root, file)
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                
-                # Determine pattern_type
-                pattern_type = "standards"
-                if "single_topic" in file:
-                    pattern_type = "single_topic"
-                elif "multi_topic_stateful" in file:
-                    pattern_type = "multi_topic_stateful"
-                elif "error_topic" in file:
-                    pattern_type = "error_topic"
+    for row in db_standards:
+        title = row.get('title', '')
+        content = row.get('description', '')
+        folder = row.get('folder', 'standards')
+        created_by = row.get('created_by', '1')
+        track_id = row.get('track_id')
+        
+        if not content:
+            continue
 
-                # Get track_id for this file
-                clean_title = file.replace('.md', '').replace('_', ' ').replace('-', ' ').title()
-                track_id = track_id_map.get(file, track_id_map.get(clean_title, -1))
+        # Determine pattern_type
+        pattern_type = "standards"
+        if "single_topic" in title.lower():
+            pattern_type = "single_topic"
+        elif "multi_topic_stateful" in title.lower():
+            pattern_type = "multi_topic_stateful"
+        elif "error_topic" in title.lower():
+            pattern_type = "error_topic"
 
-                chunks = chunk_text(content)
-                for i, chunk in enumerate(chunks):
-                    documents.append(chunk)
-                    metadatas.append({
-                        "filename": file,
-                        "section_title": f"{file} part {i}",
-                        "pattern_type": pattern_type,
-                        "track_id": track_id
-                    })
-                    ids.append(f"doc_{file_id}_{i}")
-                
-                file_id += 1
+        if track_id is None:
+            track_id = -1
+
+        chunks = chunk_text(content)
+        for i, chunk in enumerate(chunks):
+            documents.append(chunk)
+            metadatas.append({
+                "filename": f"{title}.md",
+                "folder": folder,
+                "section_title": f"{title} part {i}",
+                "pattern_type": pattern_type,
+                "track_id": track_id,
+                "created_by": str(created_by)
+            })
+            ids.append(f"doc_{row['id']}_{i}")
 
     if documents:
         vector_store.add_documents(documents, metadatas, ids)
-        print(f"Ingested {len(documents)} chunks from knowledge base.")
+        print(f"Ingested {len(documents)} chunks from knowledge base (DB).")
     else:
-        print("No markdown files found in knowledge base.")
+        print("No content found in knowledge base (DB).")
 
 if __name__ == "__main__":
     ingest_knowledge_base()

@@ -120,12 +120,13 @@ def save_standard():
                 "message": f"A standard with filename '{clean_filename}' already exists. Please choose a different filename."
             }), 400
 
-        target_dir = os.path.join(KB_DIR, folder)
-        os.makedirs(target_dir, exist_ok=True)
-        
-        file_path = os.path.join(target_dir, clean_filename)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
+        if not track_id:
+            target_dir = os.path.join(KB_DIR, folder)
+            os.makedirs(target_dir, exist_ok=True)
+            
+            file_path = os.path.join(target_dir, clean_filename)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
 
         if existing:
             execute_write(
@@ -170,12 +171,13 @@ def upload_standard():
     except Exception as e:
         content = f"Uploaded content for {filename}"
 
-    target_dir = os.path.join(KB_DIR, folder)
-    os.makedirs(target_dir, exist_ok=True)
-    
-    file_path = os.path.join(target_dir, clean_filename)
-    with open(file_path, 'w', encoding='utf-8') as f:
-        f.write(content)
+    if not track_id:
+        target_dir = os.path.join(KB_DIR, folder)
+        os.makedirs(target_dir, exist_ok=True)
+        
+        file_path = os.path.join(target_dir, clean_filename)
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
 
     new_id = None
     try:
