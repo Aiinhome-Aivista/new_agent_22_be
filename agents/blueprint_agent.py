@@ -4,11 +4,12 @@ from llm_service import call_llm, load_prompt
 
 logger = logging.getLogger(__name__)
 
-def generate_blueprint(spec, patterns):
+def generate_blueprint(spec, patterns, existing_files=None):
     """
     Calls LLM with spec + patterns to produce file manifest and design.
     """
-    prompt = load_prompt("blueprint_prompt", spec_json=json.dumps(spec, default=str), patterns_json=json.dumps(patterns, default=str))
+    existing_files_str = "\n".join(existing_files) if existing_files else "None"
+    prompt = load_prompt("blueprint_prompt", spec_json=json.dumps(spec, default=str), patterns_json=json.dumps(patterns, default=str), existing_files=existing_files_str)
     
     llm_response = call_llm(prompt)
     try:

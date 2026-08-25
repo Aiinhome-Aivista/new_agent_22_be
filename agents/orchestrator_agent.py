@@ -92,7 +92,9 @@ def run_pipeline(request_id, job_id, draft_mode=False):
             if bp_row['status'] == 'approved':
                 draft_mode = False
         else:
-            blueprint = generate_blueprint(spec, patterns)
+            existing_files_query = execute_query("SELECT DISTINCT file_name FROM generated_files")
+            existing_files = [f['file_name'] for f in existing_files_query]
+            blueprint = generate_blueprint(spec, patterns, existing_files)
             execute_write(
                 "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, mermaid_diagram, status) VALUES (%s, %s, %s, %s, %s, %s)",
                 (request_id, json.dumps({"files": blueprint.get("files", [])}), blueprint.get("class_design", ""), blueprint.get("rationale", ""), blueprint.get("mermaid_diagram", ""), "draft" if draft_mode else "approved")
@@ -114,6 +116,19 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         # 5. Generation Agent
         update_job_status(job_id, 'running', 'Generation', 'Rendering Jinja2 templates')
         generated_files, updated_blueprint = generate_code(request_id, blueprint, spec, req['package_name'], req['application_id'])
+        
+        # Copy reused files from database
+        reused_files = [f for f in updated_blueprint.get("files", []) if f.get("status") == "reuse"]
+        for rf in reused_files:
+            past_file = execute_query("SELECT file_content, file_type, file_path FROM generated_files WHERE file_name=%s ORDER BY id DESC LIMIT 1", (rf['filename'],))
+            if past_file:
+                generated_files.append({
+                    "file_name": rf['filename'],
+                    "file_path": past_file[0]['file_path'],
+                    "file_type": past_file[0]['file_type'],
+                    "file_content": past_file[0]['file_content']
+                })
+        
         
         docs = []
         metas = []

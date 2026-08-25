@@ -18,7 +18,8 @@ def generate_code(request_id, blueprint, spec, package_name, application_id):
     if "README.md" not in [f.get("filename", "") for f in files_to_generate]:
         files_to_generate.append({"filename": "README.md", "purpose": "Documentation for microservice", "status": "planned"})
 
-    pending_files = list(files_to_generate)
+    # Filter out files that are marked for reuse (they are handled in the orchestrator)
+    pending_files = [f for f in files_to_generate if f.get("status") != "reuse"]
     max_retries = 3
     
     # Process files in batches to optimize speed while avoiding LLM output token limits
