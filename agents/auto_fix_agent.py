@@ -20,8 +20,12 @@ def fix_package(request_id, rule_name, message):
         
     files_json = json.dumps([{"file_name": f["file_name"], "file_content": f["file_content"]} for f in gen_files])
     
+    # Fetch track_id for this request
+    req = execute_query("SELECT track_id FROM generation_requests WHERE id=%s", (request_id,))
+    track_id = req[0]['track_id'] if req else None
+
     # 2. Get the full validation rules context
-    rules_text = get_dynamic_validation_rules()
+    rules_text = get_dynamic_validation_rules(track_id)
     
     # 3. Call LLM to fix
     prompt = load_prompt("auto_fix_prompt", rule_name=rule_name, message=message, files_json=files_json, validation_rules=rules_text)

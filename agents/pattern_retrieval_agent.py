@@ -4,14 +4,25 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def retrieve_patterns(generation_spec):
+def retrieve_patterns(generation_spec, track_id=None):
     """
     Queries ChromaDB with the generation spec to find relevant patterns.
     """
     try:
         vector_store = VectorStore()
         query_text = json.dumps(generation_spec, default=str)
-        results = vector_store.query(query_text, top_k=5)
+        
+        where_filter = None
+        if track_id is not None:
+            # We filter by specific track_id OR -1 (global rules)
+            where_filter = {
+                "$or": [
+                    {"track_id": int(track_id)},
+                    {"track_id": -1}
+                ]
+            }
+
+        results = vector_store.query(query_text, top_k=5, where_filter=where_filter)
         
         matches = []
         if results and results.get("documents") and len(results["documents"]) > 0:

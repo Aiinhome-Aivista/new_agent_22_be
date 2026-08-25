@@ -66,7 +66,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         
         # 3. Pattern Retrieval Agent
         update_job_status(job_id, 'running', 'Pattern Retrieval', 'Querying knowledge base')
-        patterns = retrieve_patterns(spec)
+        patterns = retrieve_patterns(spec, req.get('track_id'))
         for p in patterns:
             try:
                 execute_write(
@@ -144,7 +144,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         update_job_status(job_id, 'running', 'Validation', 'Running validation rules')
         out_dir = os.path.join(PACKAGE_OUTPUT_DIR, str(request_id))
         execute_write("DELETE FROM validation_results WHERE request_id=%s", (request_id,))
-        val_results, val_summary = validate_package(request_id, req['application_id'], out_dir, updated_blueprint.get("files", []), spec)
+        val_results, val_summary = validate_package(request_id, req['application_id'], out_dir, updated_blueprint.get("files", []), spec, req.get('track_id'))
 
         
         has_errors = False
