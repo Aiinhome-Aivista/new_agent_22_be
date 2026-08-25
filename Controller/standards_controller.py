@@ -26,8 +26,27 @@ def ensure_standards_track_columns():
             execute_write("ALTER TABLE architecture_standards ADD COLUMN folder VARCHAR(255) DEFAULT 'standards'")
         if 'created_by' not in col_names:
             execute_write("ALTER TABLE architecture_standards ADD COLUMN created_by VARCHAR(255)")
+
+        # Auto-normalize folder for existing standards if unassigned or default
+        rows = execute_query("SELECT id, title, folder FROM architecture_standards")
+        if rows:
+            for r in rows:
+                t = (r.get('title') or '').lower()
+                cur_folder = r.get('folder') or 'standards'
+                new_folder = cur_folder
+                if 'pattern' in t or 'script' in t or 'sample' in t:
+                    new_folder = 'sample_scripts'
+                elif 'validation' in t or 'rule' in t or 'yaml' in t:
+                    new_folder = 'validation_rules'
+                elif 'standard' in t or 'convention' in t or 'naming' in t:
+                    new_folder = 'standards'
+                
+                if new_folder != cur_folder:
+                    execute_write("UPDATE architecture_standards SET folder = %s WHERE id = %s", (new_folder, r['id']))
+        # Ensure created_by is never NULL in database
+        execute_write("UPDATE architecture_standards SET created_by = 'System Architect' WHERE created_by IS NULL OR created_by = ''")
     except Exception as e:
-        pass
+        print(f"Error ensuring standards columns: {e}")
 
 @standards_bp.route('/', methods=['GET'])
 def list_standards():

@@ -6,12 +6,20 @@ techlead_bp = Blueprint('techlead', __name__)
 
 @techlead_bp.route('/validations', methods=['GET'])
 def get_validations():
-    # Join with generation_requests to get application context
+    track_id = request.args.get('track_id')
+    
     query = """
-        SELECT v.*, r.application_id, r.request_name 
+        SELECT v.*, r.application_id, r.request_name, r.track_id 
         FROM validation_results v
         JOIN generation_requests r ON v.request_id = r.id
-        WHERE v.status = 'OPEN' OR v.status IS NULL
+        WHERE (v.status = 'OPEN' OR v.status IS NULL)
+    """
+    params = []
+    if track_id:
+        query += " AND r.track_id = %s"
+        params.append(track_id)
+        
+    query += """
         ORDER BY 
             CASE v.severity 
                 WHEN 'error' THEN 1 
@@ -21,7 +29,7 @@ def get_validations():
             END ASC,
             v.created_at DESC
     """
-    results = execute_query(query)
+    results = execute_query(query, tuple(params))
     
     # Map severity for frontend
     severity_map = {
