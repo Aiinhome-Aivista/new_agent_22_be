@@ -61,7 +61,7 @@ def list_standards():
                         content = f.read()
                     title = file.replace('.md', '').replace('_', ' ').replace('-', ' ').title()
                     folder_name = os.path.basename(root)
-                    if folder_name not in ['standards', 'validation_rules', 'sample_scripts']:
+                    if folder_name not in ['standards', 'miro_diagram', 'validation_rules', 'sample_scripts']:
                         folder_name = 'standards'
                     
                     execute_write(
@@ -79,7 +79,7 @@ def list_standards():
             raw_title = item.get('title', 'Standard') or 'Standard'
             filename_val = raw_title if raw_title.lower().endswith('.md') else f"{raw_title}.md"
             folder_val = item.get('folder', 'standards') or 'standards'
-            if folder_val not in ['standards', 'validation_rules', 'sample_scripts']:
+            if folder_val not in ['standards', 'miro_diagram', 'validation_rules', 'sample_scripts']:
                 folder_val = 'standards'
 
             standards.append({
@@ -335,10 +335,25 @@ def extract_text_from_stream(file_stream, filename):
             img = Image.open(file_stream)
             model = genai.GenerativeModel('gemini-3.5-flash')
             prompt = """
-            Analyze this architecture or workflow diagram (like a Miro board). 
-            Extract the standard rules, process flow, and naming conventions.
-            Represent the flow clearly step-by-step.
-            Format your output in clean Markdown.
+            You are a Principal Enterprise Architect at PwC. Analyze this architecture or workflow diagram (like a Miro board).
+            Your goal is to extract the content and convert it into a highly professional, production-ready "Architecture Standard & Blueprint" document.
+            
+            Please strictly follow this structure:
+            
+            # Enterprise Architecture Blueprint
+            
+            ## 1. Architectural Overview & Component Naming Conventions
+            - Describe the overall architecture pattern (e.g., Event-Driven, Microservices, API-led).
+            - List all components clearly with the following naming convention: `[Component Name] ([Technology/Role])`.
+            
+            ## 2. Standard Architectural Rules
+            - Deduce strict architectural rules based on the diagram (e.g., "The UI must never connect directly to databases", "All inter-service communication must be asynchronous via Kafka").
+            
+            ## 3. Step-by-Step Process Flow
+            - Create a beautiful ASCII diagram of the step-by-step flow.
+            - Detail the exact Step-by-Step process flow, explicitly mentioning the Triggers, Actions, and Protocols (e.g., HTTP/REST, Async Publish, Consume).
+            
+            Use clean, professional Markdown. The output must be 100% ready for an enterprise engineering team to follow.
             """
             response = model.generate_content([prompt, img])
             return response.text
