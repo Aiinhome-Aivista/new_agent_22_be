@@ -1,7 +1,12 @@
 import os
 import subprocess
 from flask import Blueprint, request, jsonify
+from config import GEMINI_API_KEY
+import google.generativeai as genai
 from db import execute_query, execute_write
+
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 standards_bp = Blueprint('standards', __name__)
 
@@ -318,6 +323,27 @@ def extract_text_from_stream(file_stream, filename):
                 return "\n\n".join(sheets)
         except Exception as e:
             return f"Excel Extraction Error: {str(e)}"
+
+    elif ext in ['.png', '.jpg', '.jpeg', '.webp']:
+        if not GEMINI_API_KEY:
+            return "Image Extraction Error: GEMINI_API_KEY is not configured in .env file."
+        try:
+            import google.generativeai as genai
+            from PIL import Image
+            
+            genai.configure(api_key=GEMINI_API_KEY)
+            img = Image.open(file_stream)
+            model = genai.GenerativeModel('gemini-3.5-flash')
+            prompt = """
+            Analyze this architecture or workflow diagram (like a Miro board). 
+            Extract the standard rules, process flow, and naming conventions.
+            Represent the flow clearly step-by-step.
+            Format your output in clean Markdown.
+            """
+            response = model.generate_content([prompt, img])
+            return response.text
+        except Exception as e:
+            return f"Image Extraction Error: {str(e)}"
 
     else:
         try:
