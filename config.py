@@ -13,6 +13,7 @@ DB_NAME = os.getenv("DB_NAME", "agent22_kafka_db")
 # LLM
 LLM_API_URL = os.getenv("LLM_API_URL", "http://122.163.121.176:3041/api/generate")
 LLM_MODEL = os.getenv("LLM_MODEL", "mistral-small:24b")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Internal Configs
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
