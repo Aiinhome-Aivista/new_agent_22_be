@@ -17,6 +17,18 @@ def generate_blueprint(spec, patterns, existing_files=None):
         end_idx = llm_response.rfind('}') + 1
         clean_json = llm_response[start_idx:end_idx]
         blueprint = json.loads(clean_json)
+        
+        # Clean up mermaid diagram if it contains markdown backticks
+        if "mermaid_diagram" in blueprint and blueprint["mermaid_diagram"]:
+            diagram = blueprint["mermaid_diagram"]
+            if diagram.startswith("```mermaid"):
+                diagram = diagram.replace("```mermaid", "", 1)
+            elif diagram.startswith("```"):
+                diagram = diagram.replace("```", "", 1)
+            if diagram.endswith("```"):
+                diagram = diagram[:-3]
+            blueprint["mermaid_diagram"] = diagram.strip()
+            
         return blueprint
     except Exception as e:
         logger.error(f"Failed to parse LLM blueprint response: {e}")
