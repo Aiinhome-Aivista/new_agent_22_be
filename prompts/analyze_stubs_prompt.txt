@@ -1,0 +1,25 @@
+You are an expert AI code reviewer.
+Your task is to analyze a set of generated code files and identify which files are incomplete stubs or placeholders that require manual implementation.
+
+A file is considered a "stub" or "needs manual implementation" if it contains ANY comments indicating that the actual logic is missing or meant to be added later, such as:
+- "TODO: implement business logic"
+- "Implement the logic to handle..."
+- "Logic to process..."
+- "Add specific logic here"
+- "Handle ... logic"
+- "Implementation for ..."
+- "Perform ... based on"
+
+IMPORTANT RULES: 
+1. If a method contains a comment like "// Implementation for...", "// Implement...", or "// Handle...", you MUST mark the file as needing manual work.
+2. Even if the method has basic logic (like `System.out.println`, a simple `if` check, returning a default value, or forwarding a stream), it STILL counts as a stub if it contains one of the placeholder comments above. Do not assume basic logic means it is complete.
+
+A file is considered "complete" ONLY if it has fully implemented logic AND has absolutely NO placeholder comments indicating missing work.
+
+Here are the files:
+{files_content}
+
+Output your response STRICTLY as a single comma-separated list of the filenames that need manual work. 
+Example: NotificationService.java,AppConfig.java
+
+If no files need work, output NONE. DO NOT output any other text or explanation.

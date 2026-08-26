@@ -42,4 +42,50 @@ def get_files(req_id):
     # Read preview directly from database column
     for f in files:
         f['preview'] = f.get('file_content') or "// No content available in database"
+        # ensure needs_work is passed properly
+        f['needs_work'] = f.get('needs_work')
     return jsonify({"success": True, "data": files})
+
+@generation_bp.route('/request/<int:req_id>/analyze-needs-work', methods=['POST'])
+def analyze_needs_work(req_id):
+    data = request.json or {}
+    force = data.get('force', False)
+    
+    # If not forcing, check if we already have some files unanalyzed
+    files = execute_query("SELECT id, file_name, file_content, needs_work FROM generated_files WHERE request_id=%s", (req_id,))
+    if not files:
+        return jsonify({"success": True, "data": {}})
+
+    files_to_analyze = [f for f in files if f.get('needs_work') is None] if not force else files
+    
+    if not files_to_analyze:
+        # All files already analyzed, just return the map
+        result_map = {f['file_name']: bool(f['needs_work']) for f in files}
+        return jsonify({"success": True, "data": result_map})
+
+    try:
+        import re
+        result_map = {}
+        from db import execute_write
+        
+        for f in files:
+            fname = f['file_name']
+            if f in files_to_analyze:
+                code = f.get('file_content', '') or ""
+                # Dynamically extract all comments from the code (supports Java/JS/TS, Python/Bash/YML, HTML/XML)
+                comments = re.findall(r'//.*|/\*.*?\*/|#.*|<!--.*?-->', code, re.DOTALL)
+                comments_text = " ".join(comments).lower()
+                
+                # Check for stub-indicating keywords in the comments
+                needs = any(kw in comments_text for kw in ['todo', 'implement', 'logic', 'handle', 'placeholder', 'add specific'])
+                
+                execute_write("UPDATE generated_files SET needs_work=%s WHERE id=%s", (needs, f['id']))
+                result_map[fname] = needs
+            else:
+                result_map[fname] = bool(f['needs_work'])
+                
+        return jsonify({"success": True, "data": result_map})
+        
+    except Exception as e:
+        print("Error during analysis:", e)
+        return jsonify({"success": False, "message": "Failed to analyze files"})
