@@ -59,16 +59,22 @@ def action_validation(val_id):
 
 @techlead_bp.route('/reviews', methods=['GET'])
 def get_reviews():
+    track_id = request.args.get('track_id')
     # Tech lead needs to review requests that have generated blueprints and code
     # typically status IN ('validated', 'packaged') waiting for final 'approved' (to git)
     # The architecture spec states TechLead reviews code for commit
     query = """
-        SELECT r.id, r.request_name as serviceName, r.application_id as targetAppId, r.status, r.created_at as date
+        SELECT r.id, r.request_name as serviceName, r.application_id as targetAppId, r.status, r.created_at as date, r.track_id
         FROM generation_requests r
         WHERE r.status IN ('validated', 'packaged', 'rework', 'approved', 'rejected')
-        ORDER BY r.created_at DESC
     """
-    results = execute_query(query)
+    params = []
+    if track_id:
+        query += " AND r.track_id = %s"
+        params.append(track_id)
+        
+    query += " ORDER BY r.created_at DESC"
+    results = execute_query(query, tuple(params))
     
     # Let's attach validation summary
     for req in results:
@@ -112,9 +118,17 @@ def signoff_review():
 
 @techlead_bp.route('/reports/summary', methods=['GET'])
 def get_reports_summary():
+    track_id = request.args.get('track_id')
+    
     # 1. total_passed: Count of requests with NO failed/warning validations
     # (Simplified: requests in packaged/approved state that have no error records)
-    total_reqs = execute_query("SELECT id FROM generation_requests WHERE status IN ('validated', 'packaged', 'approved')")
+    q1 = "SELECT id FROM generation_requests WHERE status IN ('validated', 'packaged', 'approved')"
+    p1 = []
+    if track_id:
+        q1 += " AND track_id = %s"
+        p1.append(track_id)
+        
+    total_reqs = execute_query(q1, tuple(p1))
     total_passed = 0
     for req in total_reqs:
         errors = execute_query("SELECT id FROM validation_results WHERE request_id=%s AND passed=0", (req['id'],))
@@ -122,11 +136,25 @@ def get_reports_summary():
             total_passed += 1
 
     # 2. warnings_and_waivers: count of validation_results with severity in ('warning','info') or status='WAIVED'
-    res = execute_query("SELECT COUNT(*) as count FROM validation_results WHERE severity IN ('warning','info') OR status='WAIVED'")
+    q2 = """SELECT COUNT(*) as count FROM validation_results v 
+            JOIN generation_requests r ON v.request_id = r.id
+            WHERE (v.severity IN ('warning','info') OR v.status='WAIVED')"""
+    p2 = []
+    if track_id:
+        q2 += " AND r.track_id = %s"
+        p2.append(track_id)
+    res = execute_query(q2, tuple(p2))
     warnings = res[0]['count'] if res else 0
 
     # 3. critical_failures: count of OPEN error severity issues
-    res2 = execute_query("SELECT COUNT(*) as count FROM validation_results WHERE severity='error' AND (status='OPEN' OR status IS NULL)")
+    q3 = """SELECT COUNT(*) as count FROM validation_results v 
+            JOIN generation_requests r ON v.request_id = r.id
+            WHERE v.severity='error' AND (v.status='OPEN' OR v.status IS NULL)"""
+    p3 = []
+    if track_id:
+        q3 += " AND r.track_id = %s"
+        p3.append(track_id)
+    res2 = execute_query(q3, tuple(p3))
     critical = res2[0]['count'] if res2 else 0
 
     return jsonify({
@@ -140,14 +168,20 @@ def get_reports_summary():
 
 @techlead_bp.route('/reports', methods=['GET'])
 def get_reports_list():
+    track_id = request.args.get('track_id')
     # Fetch completed or packaged generation requests as reports
     query = """
         SELECT id, request_name as title, application_id, 'PDF, DOCX' as type, created_at as date
         FROM generation_requests
         WHERE status IN ('validated', 'packaged', 'approved')
-        ORDER BY created_at DESC
     """
-    results = execute_query(query)
+    params = []
+    if track_id:
+        query += " AND track_id = %s"
+        params.append(track_id)
+        
+    query += " ORDER BY created_at DESC"
+    results = execute_query(query, tuple(params))
     
     for row in results:
         # Mocking size for UI
