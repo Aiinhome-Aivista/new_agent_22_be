@@ -40,6 +40,7 @@ def create_requirement():
 
     file_uploads = request.files.getlist('file_upload')
     saved_file_paths = [] # This will now store [{"filename": "...", "content": "..."}]
+    saved_image_paths = []
     
     for file_upload in file_uploads:
         if file_upload and file_upload.filename:
@@ -49,7 +50,11 @@ def create_requirement():
                 content = ""
                 filename_lower = filename.lower()
                 
-                if filename_lower.endswith('.pdf'):
+                if filename_lower.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                    import base64
+                    b64_content = base64.b64encode(file_bytes).decode('utf-8')
+                    saved_image_paths.append(b64_content)
+                elif filename_lower.endswith('.pdf'):
                     reader = PyPDF2.PdfReader(BytesIO(file_bytes))
                     for page in reader.pages:
                         page_text = page.extract_text()
@@ -78,7 +83,8 @@ def create_requirement():
         extract_payload = {
             'prompt': prompt,
             'language': language,
-            'attached_files': [f"Filename: {f['filename']}\nContent:\n{f['content'][:5000]}" for f in saved_file_paths]
+            'attached_files': [f"Filename: {f['filename']}\nContent:\n{f['content'][:5000]}" for f in saved_file_paths],
+            'attached_images': saved_image_paths
         }
         normalized_spec = normalize_requirements(extract_payload)
         
@@ -169,6 +175,7 @@ def intake_chat():
         
     file_uploads = request.files.getlist('file_upload')
     saved_file_paths = []
+    saved_image_paths = []
     
     for file_upload in file_uploads:
         if file_upload and file_upload.filename:
@@ -178,7 +185,11 @@ def intake_chat():
                 content = ""
                 filename_lower = filename.lower()
                 
-                if filename_lower.endswith('.pdf'):
+                if filename_lower.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                    import base64
+                    b64_content = base64.b64encode(file_bytes).decode('utf-8')
+                    saved_image_paths.append(b64_content)
+                elif filename_lower.endswith('.pdf'):
                     reader = PyPDF2.PdfReader(BytesIO(file_bytes))
                     for page in reader.pages:
                         page_text = page.extract_text()
@@ -203,7 +214,7 @@ def intake_chat():
             
     try:
         files_content = [f"Filename: {f['filename']}\nContent:\n{f['content'][:5000]}" for f in saved_file_paths]
-        result = analyze_conversational_intake(messages, language, files_content)
+        result = analyze_conversational_intake(messages, language, files_content, images=saved_image_paths)
         
         if result.get('status') == 'complete':
             req = result.get('requirements', {})

@@ -334,27 +334,11 @@ def extract_text_from_stream(file_stream, filename):
             genai.configure(api_key=GEMINI_API_KEY)
             img = Image.open(file_stream)
             model = genai.GenerativeModel('gemini-3.5-flash')
-            prompt = """
-            You are a Principal Enterprise Architect at PwC. Analyze this architecture or workflow diagram (like a Miro board).
-            Your goal is to extract the content and convert it into a highly professional, production-ready "Architecture Standard & Blueprint" document.
             
-            Please strictly follow this structure:
-            
-            # Enterprise Architecture Blueprint
-            
-            ## 1. Architectural Overview & Component Naming Conventions
-            - Describe the overall architecture pattern (e.g., Event-Driven, Microservices, API-led).
-            - List all components clearly with the following naming convention: `[Component Name] ([Technology/Role])`.
-            
-            ## 2. Standard Architectural Rules
-            - Deduce strict architectural rules based on the diagram (e.g., "The UI must never connect directly to databases", "All inter-service communication must be asynchronous via Kafka").
-            
-            ## 3. Step-by-Step Process Flow
-            - Create a beautiful ASCII diagram of the step-by-step flow.
-            - Detail the exact Step-by-Step process flow, explicitly mentioning the Triggers, Actions, and Protocols (e.g., HTTP/REST, Async Publish, Consume).
-            
-            Use clean, professional Markdown. The output must be 100% ready for an enterprise engineering team to follow.
-            """
+            prompt_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'prompts', 'architecture_standards_prompt.txt')
+            with open(prompt_path, 'r', encoding='utf-8') as f:
+                prompt = f.read()
+                
             response = model.generate_content([prompt, img])
             return response.text
         except Exception as e:

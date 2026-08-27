@@ -4,7 +4,7 @@ from llm_service import call_llm, load_prompt
 
 logger = logging.getLogger(__name__)
 
-def analyze_conversational_intake(messages, language="Java Kafka", files=None):
+def analyze_conversational_intake(messages, language="Java Kafka", files=None, images=None):
     """
     Analyzes the conversation history to determine if enough requirements have been gathered.
     If not, it asks a clarifying question. If yes, it extracts the requirements.
@@ -19,7 +19,7 @@ def analyze_conversational_intake(messages, language="Java Kafka", files=None):
 
     prompt = load_prompt("analyze_conversation_prompt", language=language, files_str=files_str, history_str=history_str)
     
-    llm_response = call_llm(prompt)
+    llm_response = call_llm(prompt, images=images)
     try:
         start_idx = llm_response.find('{')
         end_idx = llm_response.rfind('}') + 1
@@ -38,7 +38,7 @@ def normalize_requirements(req_data):
     """
     prompt = load_prompt("normalize_requirements_prompt", language=req_data.get('language', 'Unknown'), user_prompt=req_data.get('prompt', ''), attached_files=req_data.get('attached_files', []))
     
-    llm_response = call_llm(prompt)
+    llm_response = call_llm(prompt, images=req_data.get('attached_images', []))
     try:
         start_idx = llm_response.find('{')
         end_idx = llm_response.rfind('}') + 1
