@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS blueprints (
     generated_rationale TEXT,
     alternative_designs TEXT,
     assumptions TEXT,
+    mermaid_diagram TEXT,
     comments TEXT,
     status ENUM('draft','approved','rework','rejected') DEFAULT 'draft',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

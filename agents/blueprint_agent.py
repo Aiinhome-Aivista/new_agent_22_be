@@ -18,6 +18,30 @@ def generate_blueprint(spec, patterns, existing_files=None):
         clean_json = llm_response[start_idx:end_idx]
         blueprint = json.loads(clean_json)
         
+        # Normalize alternative LLM keys
+        if not blueprint.get("class_design"):
+            blueprint["class_design"] = blueprint.get("classDesign", blueprint.get("design", ""))
+            
+        if not blueprint.get("rationale"):
+            blueprint["rationale"] = blueprint.get("generated_rationale", blueprint.get("architecture_rationale", ""))
+            
+        if not blueprint.get("mermaid_diagram"):
+            blueprint["mermaid_diagram"] = blueprint.get("mermaidDiagram", blueprint.get("diagram", ""))
+            
+        # If still empty, try to extract from outside the JSON
+        if not blueprint.get("class_design"):
+            import re
+            cd_match = re.search(r'(?i)(?:class design|design):?\s*\n+(.*?)(?:\n\s*\n|(?=rationale)|(?=mermaid)|$)', llm_response, re.DOTALL)
+            if cd_match: blueprint["class_design"] = cd_match.group(1).strip()
+            
+        if not blueprint.get("rationale"):
+            rat_match = re.search(r'(?i)(?:rationale|generated rationale):?\s*\n+(.*?)(?:\n\s*\n|(?=mermaid)|$)', llm_response, re.DOTALL)
+            if rat_match: blueprint["rationale"] = rat_match.group(1).strip()
+            
+        if not blueprint.get("mermaid_diagram"):
+            mer_match = re.search(r'```mermaid\s*(.*?)\s*```', llm_response, re.DOTALL)
+            if mer_match: blueprint["mermaid_diagram"] = mer_match.group(1).strip()
+        
         # Clean up mermaid diagram if it contains markdown backticks
         if "mermaid_diagram" in blueprint and blueprint["mermaid_diagram"]:
             diagram = blueprint["mermaid_diagram"]
