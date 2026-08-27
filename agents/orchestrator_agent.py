@@ -164,9 +164,10 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         
         has_errors = False
         for vr in val_results:
+            status_val = 'RESOLVED' if vr['passed'] else 'OPEN'
             execute_write(
-                "INSERT INTO validation_results (request_id, rule_name, passed, severity, message) VALUES (%s, %s, %s, %s, %s)",
-                (request_id, vr['rule_name'], vr['passed'], vr['severity'], vr['message'])
+                "INSERT INTO validation_results (request_id, rule_name, passed, severity, message, status) VALUES (%s, %s, %s, %s, %s, %s)",
+                (request_id, vr['rule_name'], vr['passed'], vr['severity'], vr['message'], status_val)
             )
             if vr['severity'] == 'error' and not vr['passed']:
                 has_errors = True
