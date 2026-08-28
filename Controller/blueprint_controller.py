@@ -50,8 +50,14 @@ def approve(bp_id):
 @blueprint_bp.route('/<int:bp_id>/rework', methods=['PUT'])
 def rework(bp_id):
     data = request.json
-    comments = data.get('comments', '')
-    res = execute_write("UPDATE blueprints SET status='rework', comments=%s WHERE id=%s", (comments, bp_id))
+    comments = data.get('comments', '').strip()
+    
+    if comments:
+        formatted_comment = f"\\n[Architect Feedback]: {comments}"
+        res = execute_write("UPDATE blueprints SET status='rework', comments=CONCAT(COALESCE(comments, ''), %s) WHERE id=%s", (formatted_comment, bp_id))
+    else:
+        res = execute_write("UPDATE blueprints SET status='rework' WHERE id=%s", (bp_id,))
+        
     if res is not None:
         return jsonify({"success": True, "message": "Blueprint marked for rework"})
     return jsonify({"success": False, "message": "Update failed"}), 500

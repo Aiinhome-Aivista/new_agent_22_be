@@ -94,7 +94,12 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         else:
             existing_files_query = execute_query("SELECT DISTINCT file_name FROM generated_files")
             existing_files = [f['file_name'] for f in existing_files_query]
-            blueprint = generate_blueprint(spec, patterns, existing_files)
+            
+            rework_comments = ""
+            if existing_bps:
+                rework_comments = existing_bps[0].get('comments') or ""
+                
+            blueprint = generate_blueprint(spec, patterns, existing_files, rework_comments)
             execute_write(
                 "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, mermaid_diagram, status) VALUES (%s, %s, %s, %s, %s, %s)",
                 (request_id, json.dumps({"files": blueprint.get("files", [])}), blueprint.get("class_design", ""), blueprint.get("rationale", ""), blueprint.get("mermaid_diagram", ""), "draft" if draft_mode else "approved")

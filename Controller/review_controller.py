@@ -20,7 +20,13 @@ def add_review():
     if decision == 'rework':
         # Re-open blueprint step
         execute_write("UPDATE generation_requests SET status='rework' WHERE id=%s", (req_id,))
-        execute_write("UPDATE blueprints SET status='draft' WHERE request_id=%s", (req_id,))
+        
+        tech_lead_comments = data.get('comments', '').strip()
+        if tech_lead_comments:
+            formatted_comment = f"\\n[Tech Lead Feedback]: {tech_lead_comments}"
+            execute_write("UPDATE blueprints SET status='draft', comments=CONCAT(COALESCE(comments, ''), %s) WHERE request_id=%s", (formatted_comment, req_id))
+        else:
+            execute_write("UPDATE blueprints SET status='draft' WHERE request_id=%s", (req_id,))
     else:
         execute_write("UPDATE generation_requests SET status=%s WHERE id=%s", (decision, req_id))
         if decision == 'approved':
