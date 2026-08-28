@@ -9,7 +9,12 @@ def generate_blueprint(spec, patterns, existing_files=None, comments=""):
     Calls LLM with spec + patterns to produce file manifest and design.
     """
     existing_files_str = "\n".join(existing_files) if existing_files else "None"
-    prompt = load_prompt("blueprint_prompt", spec_json=json.dumps(spec, default=str), patterns_json=json.dumps(patterns, default=str), existing_files=existing_files_str, comments=comments)
+    
+    comments_section = ""
+    if comments and comments.strip():
+        comments_section = f"\nREWORK FEEDBACK (If applicable):\nThe following feedback has been provided on the previous iteration of this design. You MUST incorporate this feedback into your updated architecture and class design:\n{comments.strip()}\n"
+        
+    prompt = load_prompt("blueprint_prompt", spec_json=json.dumps(spec, default=str), patterns_json=json.dumps(patterns, default=str), existing_files=existing_files_str, comments=comments_section)
     
     llm_response = call_llm(prompt)
     try:
