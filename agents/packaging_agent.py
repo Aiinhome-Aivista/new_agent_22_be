@@ -15,7 +15,7 @@ def generate_packaging_scripts(spec, env_config, java_files):
         start_idx = llm_response.find('{')
         end_idx = llm_response.rfind('}') + 1
         clean_json = llm_response[start_idx:end_idx]
-        scripts = json.loads(clean_json)
+        scripts = json.loads(clean_json, strict=False)
         return scripts
     except Exception as e:
         logger.error(f"Failed to parse LLM packaging response: {e}")

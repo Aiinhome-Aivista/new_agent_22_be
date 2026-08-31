@@ -21,7 +21,7 @@ def generate_blueprint(spec, patterns, existing_files=None, comments=""):
         start_idx = llm_response.find('{')
         end_idx = llm_response.rfind('}') + 1
         clean_json = llm_response[start_idx:end_idx]
-        blueprint = json.loads(clean_json)
+        blueprint = json.loads(clean_json, strict=False)
         
         # Normalize alternative LLM keys
         if not blueprint.get("class_design"):
