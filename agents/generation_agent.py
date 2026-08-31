@@ -27,7 +27,8 @@ def generate_code(request_id, blueprint, spec, package_name, application_id, pat
     max_retries = 3
     
     # Process files in batches to optimize speed while avoiding LLM output token limits
-    batch_size = 4
+    # Reduced batch size to 1 to prevent LLM timeouts when generating large POJO files
+    batch_size = 1
     
     for i in range(0, len(pending_files), batch_size):
         batch = pending_files[i:i+batch_size]
