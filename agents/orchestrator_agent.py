@@ -119,31 +119,34 @@ def run_pipeline(request_id, job_id, draft_mode=False):
 
                     
         # 5. Generation Agent
+        execute_write("DELETE FROM generated_files WHERE request_id=%s", (request_id,))
         update_job_status(job_id, 'running', 'Generation', 'Rendering Jinja2 templates')
         generated_files, updated_blueprint = generate_code(request_id, blueprint, spec, req['package_name'], req['application_id'], patterns)
         
         # Copy reused files from database
         reused_files = [f for f in updated_blueprint.get("files", []) if f.get("status") == "reuse"]
         for rf in reused_files:
-            past_file = execute_query("SELECT file_content, file_type, file_path FROM generated_files WHERE file_name=%s ORDER BY id DESC LIMIT 1", (rf['filename'],))
+            past_file = execute_query("SELECT file_content, file_type, file_path, needs_work FROM generated_files WHERE file_name=%s ORDER BY id DESC LIMIT 1", (rf['filename'],))
             if past_file:
-                generated_files.append({
+                reused_f = {
                     "file_name": rf['filename'],
                     "file_path": past_file[0]['file_path'],
                     "file_type": past_file[0]['file_type'],
                     "file_content": past_file[0]['file_content']
-                })
-        
+                }
+                generated_files.append(reused_f)
+                execute_write(
+                    "INSERT INTO generated_files (request_id, file_name, file_path, file_type, file_content, needs_work) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (request_id, reused_f['file_name'], reused_f['file_path'], reused_f['file_type'], reused_f['file_content'], past_file[0]['needs_work'])
+                )
         
         docs = []
         metas = []
         ids = []
         
         for idx, f in enumerate(generated_files):
-            execute_write(
-                "INSERT INTO generated_files (request_id, file_name, file_path, file_type, file_content) VALUES (%s, %s, %s, %s, %s)",
-                (request_id, f['file_name'], f['file_path'], f['file_type'], f.get('file_content', ''))
-            )
+            # NOTE: New files were already inserted into DB by generation_agent.py. Reused files were inserted above.
+            # No need to execute_write INSERT here anymore.
             content = f.get('file_content', '')
             if content.strip():
                 docs.append(f"Generated File {f['file_name']}:\n{content}")

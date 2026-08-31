@@ -15,7 +15,10 @@ def retrieve():
     if not spec_rows:
         return jsonify({"success": False, "message": "Spec not found"}), 404
         
-    patterns = retrieve_patterns(spec_rows[0])
+    req_rows = execute_query("SELECT track_id FROM generation_requests WHERE id=%s", (req_id,))
+    track_id = req_rows[0]['track_id'] if req_rows else None
+        
+    patterns = retrieve_patterns(spec_rows[0], track_id=track_id)
     
     # Store in DB if table exists
     try:

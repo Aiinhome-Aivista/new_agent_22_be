@@ -22,17 +22,17 @@ def run_generation():
         return jsonify({"success": False, "message": "Approved blueprint not found"}), 404
         
     specs = execute_query("SELECT * FROM generation_specs WHERE request_id=%s", (req_id,))
+    pattern_rows = execute_query("SELECT * FROM pattern_matches WHERE request_id=%s", (req_id,))
     
     blueprint_data = json.loads(bps[0]['file_manifest'])
-    generated_files, updated_blueprint = generate_code(req_id, blueprint_data, specs[0], reqs[0]['package_name'], reqs[0]['application_id'])
     
-    for f in generated_files:
-        execute_write(
-            "INSERT INTO generated_files (request_id, file_name, file_path, file_type, file_content) VALUES (%s, %s, %s, %s, %s)",
-            (req_id, f['file_name'], f['file_path'], f['file_type'], f.get('file_content', ''))
-        )
-        
+    # Wipe old files for this request to prevent duplicates from surfacing in UI
+    execute_write("DELETE FROM generated_files WHERE request_id=%s", (req_id,))
+    
+    generated_files, updated_blueprint = generate_code(req_id, blueprint_data, specs[0], reqs[0]['package_name'], reqs[0]['application_id'], patterns=pattern_rows)
+    
     execute_write("UPDATE generation_requests SET status='in_progress' WHERE id=%s", (req_id,))
+    
     
     return jsonify({"success": True, "data": generated_files})
 

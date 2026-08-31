@@ -12,6 +12,9 @@ Target Topics: {target_topics}
 Consumer Group: {consumer_group}
 State Store Needed: {state_store_needed}
 
+DEVELOPER PERSONA INTAKE (Additional Info):
+{developer_intake}
+
 ARCHITECTURE STANDARDS & RULES:
 You MUST strictly follow these industry standards and custom rules when writing the code:
 {patterns_json}
@@ -21,9 +24,11 @@ BLUEPRINT ARCHITECTURE:
 {mermaid_diagram}
 
 STRICT INSTRUCTIONS:
-1. Provide the complete, final source code for ALL the requested files dynamically.
+1. Provide the complete, final source code for ONLY the exact files explicitly listed in the "FILES TO GENERATE NOW" section. DO NOT generate any extra files, configurations, or classes that are not listed there.
 2. 100% Compilation Integrity: No hallucinated methods. The Processor MUST call the correct methods implemented in the Handler.
-3. OUTPUT FORMAT: Wrap the content of EACH file EXACTLY in XML tags:
+3. NO STUBS OR SKELETONS: You MUST write the FULL, complete, production-ready business logic for every single class (Processors, Handlers, Suppliers, etc). DO NOT leave any methods empty. DO NOT use placeholder comments like `// implement logic here` or `// TODO`. You are writing the final deliverable code.
+4. Data Objects (NO RECORDS): DO NOT use Java `record` constructs under any circumstances. You MUST generate traditional Java classes (POJOs) for all event objects and DTOs. You MUST explicitly write out all fields, full constructors, all getter methods, setter methods (if applicable), `equals()`, `hashCode()`, and `toString()` methods.
+5. OUTPUT FORMAT: Wrap the content of EACH file EXACTLY in XML tags:
 <file name="ExactFileName.java">
 // Code here
 </file>

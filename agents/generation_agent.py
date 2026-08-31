@@ -4,6 +4,7 @@ import json
 from config import PACKAGE_OUTPUT_DIR
 from llm_service import call_llm
 import re
+from db import execute_write
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ def generate_code(request_id, blueprint, spec, package_name, application_id, pat
                     target_topics=spec.get('target_topics', ''),
                     consumer_group=spec.get('consumer_group', ''),
                     state_store_needed=spec.get('state_store_needed', False),
+                    developer_intake=spec.get('schema_hints', ''),
                     patterns_json=patterns_json,
                     class_design=blueprint.get('class_design', ''),
                     mermaid_diagram=blueprint.get('mermaid_diagram', '')
@@ -93,12 +95,25 @@ def generate_code(request_id, blueprint, spec, package_name, application_id, pat
                     file_path = os.path.join(full_dir, filename).replace('\\', '/')
                     file_info["status"] = "generated"
                     
+                    file_type = "java" if filename.endswith(".java") else ("yaml" if filename.endswith(".yml") else "md")
+                    
                     generated_files.append({
                         "file_name": filename,
                         "file_path": file_path,
-                        "file_type": "java" if filename.endswith(".java") else ("yaml" if filename.endswith(".yml") else "md"),
+                        "file_type": file_type,
                         "file_content": content
                     })
+                    
+                    # Progressive insertion to DB with auto-analysis
+                    try:
+                        comments = re.findall(r'//.*|/\*.*?\*/|#.*|<!--.*?-->', content, re.DOTALL)
+                        needs = any(kw in " ".join(comments).lower() for kw in ['todo', 'implement', 'logic', 'handle', 'placeholder', 'add specific'])
+                        execute_write(
+                            "INSERT INTO generated_files (request_id, file_name, file_path, file_type, file_content, needs_work) VALUES (%s, %s, %s, %s, %s, %s)",
+                            (request_id, filename, file_path, file_type, content, needs)
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to insert file {filename} into DB: {e}")
                     
                 if not missing_in_batch:
                     break
