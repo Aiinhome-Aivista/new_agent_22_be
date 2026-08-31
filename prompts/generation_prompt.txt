@@ -33,3 +33,5 @@ STRICT INSTRUCTIONS:
 // Code here
 </file>
 Do NOT provide markdown wrappers (like ```java) inside or outside the XML tags. ONLY output the XML tags.
+6. EXTREME ADHERENCE TO CONTEXT (99% ACCURACY TARGET): You must base EVERY architectural decision, component boundary, method signature, and logic flow EXACTLY on the provided `ARCHITECTURE STANDARDS & RULES`, `BLUEPRINT ARCHITECTURE` (Class Design & Mermaid Diagram), and `DEVELOPER PERSONA INTAKE`. Do NOT deviate. Do NOT introduce your own architectural patterns if they are not specified.
+7. 100% DYNAMIC & NO HALLUCINATION: Implement EXACTLY what is specified. Do NOT add extra business logic, bonus features, unapproved dependencies, or utility methods unless explicitly mandated by the blueprint or standards. Do not generate anything on your own assumption. Your accuracy to the provided context must be absolute.
