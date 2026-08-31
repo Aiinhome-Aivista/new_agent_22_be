@@ -24,6 +24,8 @@ def analyze_conversational_intake(messages, language="Java Kafka", files=None, i
         start_idx = llm_response.find('{')
         end_idx = llm_response.rfind('}') + 1
         clean_json = llm_response[start_idx:end_idx]
+        import re
+        clean_json = re.sub(r'\\(?![/"\\bfnrtu])', r'\\\\', clean_json)
         return json.loads(clean_json, strict=False)
     except Exception as e:
         logger.error(f"Failed to parse conversational LLM response: {llm_response}")
@@ -43,6 +45,8 @@ def normalize_requirements(req_data):
         start_idx = llm_response.find('{')
         end_idx = llm_response.rfind('}') + 1
         clean_json = llm_response[start_idx:end_idx]
+        import re
+        clean_json = re.sub(r'\\(?![/"\\bfnrtu])', r'\\\\', clean_json)
         normalized = json.loads(clean_json, strict=False)
         return normalized
     except Exception as e:

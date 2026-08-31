@@ -21,6 +21,8 @@ def generate_blueprint(spec, patterns, existing_files=None, comments=""):
         start_idx = llm_response.find('{')
         end_idx = llm_response.rfind('}') + 1
         clean_json = llm_response[start_idx:end_idx]
+        import re
+        clean_json = re.sub(r'\\(?![/"\\bfnrtu])', r'\\\\', clean_json)
         blueprint = json.loads(clean_json, strict=False)
         
         # Normalize alternative LLM keys

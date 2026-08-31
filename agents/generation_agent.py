@@ -58,7 +58,7 @@ def generate_code(request_id, blueprint, spec, package_name, application_id, pat
                     raise Exception("LLM returned empty or null response.")
                     
                 # Parse XML tags
-                file_blocks = re.findall(r'<file name=["\'](.*?)["\']>(.*?)</file>', llm_code, re.DOTALL)
+                file_blocks = re.findall(r'<file[^>]*name=["\']([^"\']+)["\'][^>]*>(.*?)</file>', llm_code, re.DOTALL)
                 
                 if not file_blocks:
                     raise Exception("Failed to parse <file> tags from LLM response. Format was incorrect.")
@@ -70,14 +70,14 @@ def generate_code(request_id, blueprint, spec, package_name, application_id, pat
                     clean_content = re.sub(r'```$', '', clean_content.strip()).strip()
                     generated_dict[fname.strip()] = clean_content
                     
-                batch_success = True
+                missing_in_batch = []
                 for file_info in batch:
                     filename = file_info.get("filename")
                     content = generated_dict.get(filename)
                     
                     if not content:
                         logger.warning(f"File {filename} was missed in the batch.")
-                        batch_success = False
+                        missing_in_batch.append(file_info)
                         continue
                         
                     subfolder = ""
@@ -100,9 +100,10 @@ def generate_code(request_id, blueprint, spec, package_name, application_id, pat
                         "file_content": content
                     })
                     
-                # Break if we got all files in the batch, or at least some of them (to move on)
-                if len(generated_dict) > 0:
+                if not missing_in_batch:
                     break
+                else:
+                    batch = missing_in_batch
                     
             except Exception as e:
                 logger.error(f"Batch generation failed: {e}")

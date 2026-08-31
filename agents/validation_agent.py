@@ -49,6 +49,8 @@ def validate_package(request_id, application_id, package_dir, files_manifest, sp
     
     results = []
     try:
+        import re
+        response_text = re.sub(r'\\(?![/"\\bfnrtu])', r'\\\\', response_text)
         results = json.loads(response_text, strict=False)
         if not isinstance(results, list):
             results = [results]

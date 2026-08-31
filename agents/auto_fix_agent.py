@@ -47,6 +47,8 @@ def fix_package(request_id, rule_name, message):
             response = response.replace("```", "").strip()
             
         try:
+            import re
+            response = re.sub(r'\\(?![/"\\bfnrtu])', r'\\\\', response)
             fixed_files = json.loads(response, strict=False)
         except json.JSONDecodeError as je:
             logger.warning(f"Failed to parse JSON directly, attempting basic repair. Error: {je}")
@@ -60,6 +62,8 @@ def fix_package(request_id, rule_name, message):
                         response += '"}]'
                     else:
                         response += "]"
+                import re
+                response = re.sub(r'\\(?![/"\\bfnrtu])', r'\\\\', response)
                 fixed_files = json.loads(response, strict=False)
             except Exception as e2:
                 logger.error(f"Failed to repair JSON: {e2}")
