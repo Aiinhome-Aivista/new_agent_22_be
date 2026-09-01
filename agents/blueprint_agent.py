@@ -4,7 +4,10 @@ from llm_service import call_llm, load_prompt
 
 logger = logging.getLogger(__name__)
 
-def generate_blueprint(spec, patterns, existing_files=None, comments=""):
+from config import MIN_BLUEPRINT_ACCURACY, MAX_AUTO_FIX_RETRIES
+from agents.blueprint_validation_agent import evaluate_blueprint
+
+def _generate_blueprint_single_pass(spec, patterns, existing_files=None, comments=""):
     """
     Calls LLM with spec + patterns to produce file manifest and design.
     """
@@ -78,3 +81,58 @@ def generate_blueprint(spec, patterns, existing_files=None, comments=""):
             "assumptions": ["Fallback design assumption"],
             "mermaid_diagram": "graph TD;\n  A[Input] --> B[Processor];\n  B --> C[Output];"
         }
+
+def generate_blueprint(spec, patterns, existing_files=None, comments=""):
+    """
+    Generates blueprint and auto-validates against track standards up to MAX_AUTO_FIX_RETRIES times.
+    """
+    retries = 0
+    current_comments = comments
+    
+    best_blueprint = None
+    best_score = -1
+    best_feedback = ""
+
+    while retries <= MAX_AUTO_FIX_RETRIES:
+        if retries == 0:
+            logger.info("Generating initial blueprint...")
+        else:
+            logger.info(f"Regenerating blueprint (Auto-fix Attempt {retries}/{MAX_AUTO_FIX_RETRIES})")
+            
+        blueprint = _generate_blueprint_single_pass(spec, patterns, existing_files, current_comments)
+        
+        # Evaluate
+        eval_result = evaluate_blueprint(blueprint, spec, patterns)
+        accuracy = eval_result.get("accuracy_score", 0)
+        reasons = eval_result.get("reasons", [])
+        
+        logger.info(f"Blueprint validation accuracy: {accuracy}%")
+        
+        blueprint["accuracy_score"] = accuracy
+        blueprint["validation_feedback"] = "\n".join(reasons) if reasons else ""
+
+        # Track the best blueprint so far
+        if accuracy > best_score:
+            best_score = accuracy
+            best_blueprint = blueprint
+            best_feedback = blueprint["validation_feedback"]
+
+        if accuracy >= MIN_BLUEPRINT_ACCURACY:
+            logger.info("Blueprint met accuracy threshold.")
+            break
+            
+        # Prepare for retry
+        retries += 1
+        if retries <= MAX_AUTO_FIX_RETRIES:
+            logger.warning(f"Blueprint accuracy ({accuracy}%) below threshold ({MIN_BLUEPRINT_ACCURACY}%). Auto-fixing...")
+            
+            # Combine original comments with new validation feedback
+            additional_feedback = "\n".join(reasons)
+            current_comments = comments + "\n\nAUTOMATED VALIDATION FEEDBACK (Fix these issues):\n" + additional_feedback
+        else:
+            logger.warning(f"Max auto-fix retries reached. Returning best effort blueprint with {best_score}% accuracy.")
+            
+    best_blueprint["accuracy_score"] = best_score
+    best_blueprint["validation_feedback"] = best_feedback
+    
+    return best_blueprint

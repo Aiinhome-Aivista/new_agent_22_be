@@ -35,7 +35,7 @@ def call_llm(prompt, stream=False, images=None):
         payload["images"] = images
         
     try:
-        response = requests.post(LLM_API_URL, json=payload, timeout=600)
+        response = requests.post(LLM_API_URL, json=payload, timeout=800)
         response.raise_for_status()
         data = response.json()
         return data.get("response", "")

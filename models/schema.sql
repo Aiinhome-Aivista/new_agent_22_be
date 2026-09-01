@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS blueprints (
     assumptions TEXT,
     mermaid_diagram TEXT,
     comments TEXT,
+    accuracy_score INT,
+    validation_feedback TEXT,
     status ENUM('draft','approved','rework','rejected') DEFAULT 'draft',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (request_id) REFERENCES generation_requests(id) ON DELETE CASCADE,
