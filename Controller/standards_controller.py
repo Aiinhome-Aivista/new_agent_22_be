@@ -2,6 +2,7 @@ import os
 import subprocess
 from flask import Blueprint, request, jsonify
 from config import GEMINI_API_KEY
+from llm_service import call_llm
 import google.generativeai as genai
 from db import execute_query, execute_write
 
@@ -373,22 +374,67 @@ def parse_uploaded_file():
             })
             combined_texts.append(f"<!-- Source: {filename} -->\n# {filename}\n\n{extracted_text}")
 
-    if len(extracted_items) == 1:
-        return jsonify({
-            "success": True,
-            "filename": extracted_items[0]["filename"],
-            "content": extracted_items[0]["content"],
-            "items": extracted_items,
-            "count": 1
-        })
+    combined_code = "\n\n---\n\n".join(combined_texts)
+    default_filename = f"extracted_rules_{os.path.splitext(extracted_items[0]['original_filename'])[0]}.md" if extracted_items else "extracted_rules.md"
+
+    prompt_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'prompts', 'github_rule_extraction_prompt.txt')
+    if os.path.exists(prompt_path):
+        with open(prompt_path, 'r', encoding='utf-8') as pf:
+            prompt_template = pf.read()
+        prompt = prompt_template.replace('{combined_code}', combined_code[:25000])
     else:
-        return jsonify({
-            "success": True,
-            "filename": f"batch_upload_{len(extracted_items)}_files.md",
-            "content": "\n\n---\n\n".join(combined_texts),
-            "items": extracted_items,
-            "count": len(extracted_items)
-        })
+        prompt = f"""You are an expert Enterprise Software Architect & Code Standards Analyzer.
+You are given the following source code files and configurations from a repository:
+
+{combined_code[:25000]}
+
+YOUR TASK:
+Analyze the provided source code, configuration schemas, package names, dependencies, and implementations.
+Reverse-engineer and generate a comprehensive, structured "Architectural & Coding Standard Rule Document" in Markdown format."""
+
+    # 1. Primary: Use configured LLM from .env (LLM_API_URL & LLM_MODEL e.g. mistral-small:24b)
+    try:
+        llm_response = call_llm(prompt)
+        if llm_response and llm_response.strip():
+            return jsonify({
+                "success": True,
+                "filename": default_filename,
+                "content": llm_response.strip(),
+                "items": extracted_items,
+                "count": len(extracted_items)
+            })
+    except Exception as llm_err:
+        print(f"Configured LLM extraction notice: {llm_err}")
+
+    # 2. Secondary Fallback: Gemini AI Cloud
+    if GEMINI_API_KEY and combined_texts:
+        try:
+            model_names = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+            for mname in model_names:
+                try:
+                    model = genai.GenerativeModel(mname)
+                    response = model.generate_content(prompt)
+                    if response and response.text:
+                        return jsonify({
+                            "success": True,
+                            "filename": default_filename,
+                            "content": response.text.strip(),
+                            "items": extracted_items,
+                            "count": len(extracted_items)
+                        })
+                except Exception as m_err:
+                    print(f"Model {mname} attempt error: {m_err}")
+        except Exception as ai_err:
+            print(f"Gemini Rule Extraction Notice: {ai_err}")
+
+    # Fallback if both LLMs fail
+    return jsonify({
+        "success": True,
+        "filename": default_filename,
+        "content": combined_code,
+        "items": extracted_items,
+        "count": len(extracted_items)
+    })
 
 @standards_bp.route('/<path:file_id>', methods=['DELETE'])
 def delete_standard(file_id):
