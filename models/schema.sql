@@ -192,3 +192,15 @@ CREATE TABLE IF NOT EXISTS project_tracks (
     INDEX (project_id)
 );
 
+CREATE TABLE IF NOT EXISTS git_pushes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    request_id INT NOT NULL,
+    git_url VARCHAR(512),
+    branch VARCHAR(255),
+    target_directory VARCHAR(255),
+    commit_message TEXT,
+    pushed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (request_id) REFERENCES generation_requests(id) ON DELETE CASCADE,
+    INDEX (request_id),
+    INDEX (pushed_at)
+);

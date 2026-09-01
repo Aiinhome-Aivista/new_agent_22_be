@@ -5,6 +5,9 @@ from agents.packaging_agent import generate_packaging_scripts
 import os
 import zipfile
 import json
+import tempfile
+import subprocess
+import shutil
 
 packaging_bp = Blueprint('packaging', __name__)
 
@@ -137,3 +140,97 @@ def trigger_pipeline():
         "message": f"Pipeline triggered for {env_name.upper()}",
         "log": f"Started deployment to {env_name.upper()} namespace...\\nBuilding docker image...\\nPushing to registry...\\nApplying deployment.yaml...\\nSuccess!"
     })
+
+@packaging_bp.route('/commit', methods=['POST'])
+def commit_package():
+    data = request.json
+    req_id = data.get('request_id')
+    git_url = data.get('git_url')
+    branch = data.get('branch', 'main')
+    target_directory = data.get('target_directory', '').strip()
+    commit_message = data.get('commit_message', 'Initial commit from Agent 22 Code Package Delivery')
+    
+    if not req_id or not git_url:
+        return jsonify({"success": False, "message": "request_id and git_url are required"}), 400
+        
+    if "github.com" not in git_url.lower():
+        return jsonify({"success": False, "message": "Only GitHub URLs are supported."}), 400
+        
+    files = execute_query("SELECT file_name, file_path, file_content FROM generated_files WHERE request_id=%s", (req_id,))
+    if not files:
+        return jsonify({"success": False, "message": "No files found for this package"}), 404
+        
+    temp_dir = tempfile.mkdtemp()
+    try:
+        # Clone repository
+        clone_result = subprocess.run(['git', 'clone', git_url, temp_dir], capture_output=True, text=True)
+        if clone_result.returncode != 0:
+            return jsonify({"success": False, "message": f"Git clone failed: {clone_result.stderr}"}), 500
+            
+        # Checkout or create branch
+        branch_result = subprocess.run(['git', 'checkout', branch], cwd=temp_dir, capture_output=True, text=True)
+        if branch_result.returncode != 0:
+            subprocess.run(['git', 'checkout', '-b', branch], cwd=temp_dir, capture_output=True, text=True)
+            
+        # Write files
+        for f in files:
+            arcname = f['file_name']
+            if f.get('file_path'):
+                if 'generated_packages' in f['file_path']:
+                    parts = f['file_path'].split('generated_packages')
+                    if len(parts) > 1:
+                        sub_path = parts[1].replace('\\', '/').strip('/')
+                        if '/' in sub_path:
+                            arcname = sub_path.split('/', 1)[1]
+            
+            # Prefix with target directory if provided
+            if target_directory:
+                arcname = os.path.join(target_directory, arcname).replace('\\', '/')
+            
+            # Ensure path exists
+            full_file_path = os.path.join(temp_dir, arcname)
+            os.makedirs(os.path.dirname(full_file_path), exist_ok=True)
+            
+            with open(full_file_path, 'w', encoding='utf-8') as out_f:
+                out_f.write(f.get('file_content', '') or '')
+                
+        # Git Add
+        subprocess.run(['git', 'add', '.'], cwd=temp_dir, capture_output=True)
+        
+        # Git config
+        subprocess.run(['git', 'config', 'user.email', 'agent22@example.com'], cwd=temp_dir)
+        subprocess.run(['git', 'config', 'user.name', 'Agent 22'], cwd=temp_dir)
+        
+        # Git Commit
+        subprocess.run(['git', 'commit', '-m', commit_message], cwd=temp_dir, capture_output=True, text=True)
+        
+        # Git Push
+        push_result = subprocess.run(['git', 'push', 'origin', branch], cwd=temp_dir, capture_output=True, text=True)
+        if push_result.returncode != 0:
+            return jsonify({"success": False, "message": f"Git push failed: {push_result.stderr}"}), 500
+            
+        execute_write("UPDATE generation_requests SET status='packaged' WHERE id=%s", (req_id,))
+        
+        # Log the push
+        execute_write(
+            "INSERT INTO git_pushes (request_id, git_url, branch, target_directory, commit_message) VALUES (%s, %s, %s, %s, %s)",
+            (req_id, git_url, branch, target_directory, commit_message)
+        )
+        
+        return jsonify({"success": True, "message": f"Successfully committed and pushed to {branch}"})
+        
+    except Exception as e:
+        return jsonify({"success": False, "message": f"An error occurred: {str(e)}"}), 500
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+@packaging_bp.route('/latest-push/<int:req_id>', methods=['GET'])
+def get_latest_push(req_id):
+    result = execute_query(
+        "SELECT * FROM git_pushes WHERE request_id = %s ORDER BY pushed_at DESC LIMIT 1", 
+        (req_id,)
+    )
+    if not result:
+        return jsonify({"success": True, "data": None})
+    return jsonify({"success": True, "data": result[0]})
+
