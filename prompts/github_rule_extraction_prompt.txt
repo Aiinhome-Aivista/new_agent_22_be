@@ -1,0 +1,152 @@
+You are an expert Enterprise Software Architect & Code Standards Analyzer.
+You are given the following source code files and configurations from a repository:
+
+{combined_code}
+
+YOUR TASK:
+Analyze the provided source code, configuration schemas, package names, dependencies, and implementations.
+Reverse-engineer and generate a comprehensive, structured "Architectural & Coding Standard Rule Document" in Markdown format tailored dynamically to this repository.
+
+CRITICAL QUALITY & COMPLIANCE MANDATES (100% STRICT COMPLIANCE):
+1. **Dynamic Package & Component Naming Rules**:
+   - Extract the actual base package / namespace dynamically from the source code (e.g. `package <BasePackage>;`).
+   - Define strict component naming patterns following domain conventions: `<DomainTopicName>Supplier` (e.g., `Topic1Supplier`, `Topic2Supplier`), NEVER generic unspecific names like `Supplier` or `Handler`.
+2. **Mandatory SLF4J Logging & Exception Handling**:
+   - Every generated class/module MUST include framework-standard logging (`private static final Logger log = LoggerFactory.getLogger(ClassName.class);`).
+   - EVERY method (including `init()`, `transform()`, `close()`, and topology builders) MUST wrap execution in `try-catch` blocks with explicit logger error reporting.
+3. **100% Topology State Store Registration & API Accuracy**:
+   - ALL State Stores referenced in `transformValues()` (e.g., `STORE_1`, `STORE_2`) MUST be explicitly registered in the topology via `builder.addStateStore(storeBuilder)`. Partial state store registration is STRICTLY PROHIBITED.
+   - For `transformValues()`, components MUST explicitly implement `ValueTransformerWithKeySupplier<K, V, VR>`.
+   - The `StoreNames` constants class MUST be explicitly defined.
+4. **Exact Build System Detection**:
+   - Inspect `{combined_code}` for `pom.xml` or `build.gradle`. Explicitly specify Maven OR Gradle based on what actually exists in the repository. Do NOT list both vaguely.
+
+The output MUST follow this exact Markdown structure:
+
+# 📋 Architectural & Code Generation Rules
+
+## 1. Architecture Overview & Design Patterns
+- Summary of architecture patterns detected dynamically in this repository (Supplier Pattern, Transformer, Decoupled Architecture).
+
+## 2. Package & Naming Conventions
+- **Target Base Package**: Dynamically extracted from repository.
+- **Class & File Naming Pattern**: `<DomainTopicName>Supplier` and `<HandlerName>TransformerSupplier`. Generic names like `Supplier` are STRICTLY PROHIBITED.
+
+## 3. Dependencies & Build Rules
+- Build system detected (Specify Maven OR Gradle based on input) and key dependencies.
+
+## 4. Mandatory Coding Rules & Best Practices
+- **Logging**: SLF4J `Logger` mandatory on all classes and inner classes.
+- **Exception Handling**: Mandatory `try-catch` blocks in ALL methods (`init`, `transform`, `close`, stream topology).
+- **Topology / Component Registration**: ALL state stores referenced MUST be registered via `builder.addStateStore()`.
+
+## 5. 100% Compliant Code Generation Blueprint & Template Example
+
+Generate a 100% compliant reference code template based on the actual analyzed repository stack using dynamic placeholders (`<BasePackage>`, `<DomainTopicName>`, `<HandlerName>`):
+
+```java
+package <BasePackage>;
+
+import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.streams.StreamsBuilder;
+import org.apache.kafka.streams.kstream.KStream;
+import org.apache.kafka.streams.kstream.ValueTransformerWithKey;
+import org.apache.kafka.streams.kstream.ValueTransformerWithKeySupplier;
+import org.apache.kafka.streams.processor.ProcessorContext;
+import org.apache.kafka.streams.state.KeyValueStore;
+import org.apache.kafka.streams.state.StoreBuilder;
+import org.apache.kafka.streams.state.Stores;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * 100% Compliant StoreNames Constants Class
+ */
+public class StoreNames {
+    public static final String STORE_1 = "store-1";
+    public static final String STORE_2 = "store-2";
+}
+
+/**
+ * 100% Compliant Topic Supplier Component
+ */
+public class <DomainTopicName>Supplier {
+
+    private static final Logger log = LoggerFactory.getLogger(<DomainTopicName>Supplier.class);
+
+    public KStream<String, String> process<DomainTopicName>Stream(StreamsBuilder builder, KStream<String, String> stream) {
+        log.info("Initializing <DomainTopicName>Supplier stream topology...");
+
+        try {
+            // 1. Explicitly register ALL referenced State Stores in Topology
+            StoreBuilder<KeyValueStore<String, String>> storeBuilder1 = Stores.keyValueStoreBuilder(
+                Stores.persistentKeyValueStore(StoreNames.STORE_1),
+                Serdes.String(),
+                Serdes.String()
+            );
+            builder.addStateStore(storeBuilder1);
+
+            StoreBuilder<KeyValueStore<String, String>> storeBuilder2 = Stores.keyValueStoreBuilder(
+                Stores.persistentKeyValueStore(StoreNames.STORE_2),
+                Serdes.String(),
+                Serdes.String()
+            );
+            builder.addStateStore(storeBuilder2);
+
+            // 2. Transform stream values using ValueTransformerWithKeySupplier & registered stores
+            return stream
+                .transformValues(new <HandlerName>1TransformerSupplier(), StoreNames.STORE_1)
+                .transformValues(new <HandlerName>2TransformerSupplier(), StoreNames.STORE_2);
+        } catch (Exception e) {
+            log.error("Error building <DomainTopicName>Supplier stream topology", e);
+            throw new RuntimeException("Stream initialization failed", e);
+        }
+    }
+}
+
+/**
+ * 100% Compliant ValueTransformerWithKeySupplier Implementation
+ */
+public class <HandlerName>1TransformerSupplier implements ValueTransformerWithKeySupplier<String, String, String> {
+
+    @Override
+    public ValueTransformerWithKey<String, String, String> get() {
+        return new <HandlerName>1Transformer();
+    }
+
+    public static class <HandlerName>1Transformer implements ValueTransformerWithKey<String, String, String> {
+        private static final Logger log = LoggerFactory.getLogger(<HandlerName>1Transformer.class);
+        private KeyValueStore<String, String> stateStore1;
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public void init(ProcessorContext context) {
+            try {
+                this.stateStore1 = (KeyValueStore<String, String>) context.getStateStore(StoreNames.STORE_1);
+                log.info("<HandlerName>1Transformer initialized with state store: {}", StoreNames.STORE_1);
+            } catch (Exception e) {
+                log.error("Failed to initialize <HandlerName>1Transformer state store {}", StoreNames.STORE_1, e);
+            }
+        }
+
+        @Override
+        public String transform(String readOnlyKey, String value) {
+            try {
+                if (value == null) return null;
+                log.debug("Transforming record key: {}", readOnlyKey);
+                return value;
+            } catch (Exception e) {
+                log.error("Error in <HandlerName>1Transformer for key: {}", readOnlyKey, e);
+                return value;
+            }
+        }
+
+        @Override
+        public void close() {
+            log.info("<HandlerName>1Transformer closed.");
+        }
+    }
+}
+```
+
+DO NOT print incomplete code snippets. Extract packages and rules dynamically, and ensure ALL state stores are registered and ALL methods have try-catch blocks!
