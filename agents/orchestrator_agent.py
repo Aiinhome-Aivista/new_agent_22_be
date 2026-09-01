@@ -100,11 +100,23 @@ def run_pipeline(request_id, job_id, draft_mode=False):
                 rework_comments = existing_bps[0].get('comments') or ""
                 
             blueprint = generate_blueprint(spec, patterns, existing_files, rework_comments)
+            
+            accuracy = blueprint.get("accuracy_score", 0)
+            from config import MIN_BLUEPRINT_ACCURACY
+            is_auto_approved = False
+            
+            if draft_mode and accuracy >= MIN_BLUEPRINT_ACCURACY:
+                is_auto_approved = True
+                draft_mode = False
+                logger.info(f"Blueprint accuracy {accuracy}% >= {MIN_BLUEPRINT_ACCURACY}%. Auto-approving!")
+                
+            bp_status = "approved" if is_auto_approved else ("draft" if draft_mode else "approved")
+            
             execute_write(
-                "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, mermaid_diagram, status) VALUES (%s, %s, %s, %s, %s, %s)",
-                (request_id, json.dumps({"files": blueprint.get("files", [])}), blueprint.get("class_design", ""), blueprint.get("rationale", ""), blueprint.get("mermaid_diagram", ""), "draft" if draft_mode else "approved")
+                "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, mermaid_diagram, accuracy_score, validation_feedback, status, is_auto_approved) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (request_id, json.dumps({"files": blueprint.get("files", [])}), blueprint.get("class_design", ""), blueprint.get("rationale", ""), blueprint.get("mermaid_diagram", ""), accuracy, blueprint.get("validation_feedback", ""), bp_status, is_auto_approved)
             )
-        write_audit(request_id, "Blueprint Agent", "Design", "Patterns & Spec", "Blueprint ready")
+        write_audit(request_id, "Blueprint Agent", "Design", "Patterns & Spec", f"Blueprint ready (Accuracy: {blueprint.get('accuracy_score', 0)}%)")
         if draft_mode:
             execute_write("UPDATE generation_requests SET status='draft' WHERE id=%s", (request_id,))
             update_job_status(job_id, 'completed', 'Blueprint', 'Pipeline paused for manual blueprint review')

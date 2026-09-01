@@ -22,3 +22,7 @@ EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 PACKAGE_OUTPUT_DIR = os.path.join(BASE_DIR, "generated_packages")
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-agent-22-key")
 FLASK_DEBUG = True
+
+# Validation Configs
+MIN_BLUEPRINT_ACCURACY = int(os.getenv("MIN_BLUEPRINT_ACCURACY", 80))
+MAX_AUTO_FIX_RETRIES = int(os.getenv("MAX_AUTO_FIX_RETRIES", 5))

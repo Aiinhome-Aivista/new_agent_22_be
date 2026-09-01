@@ -26,10 +26,12 @@ def generate():
     alternative_designs = json.dumps(blueprint.get("alternative_designs", []))
     assumptions = json.dumps(blueprint.get("assumptions", []))
     mermaid_diagram = blueprint.get("mermaid_diagram", "")
+    accuracy_score = blueprint.get("accuracy_score", 0)
+    validation_feedback = blueprint.get("validation_feedback", "")
     
     execute_write(
-        "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, alternative_designs, assumptions, mermaid_diagram, status) VALUES (%s, %s, %s, %s, %s, %s, %s, 'draft')",
-        (req_id, file_manifest, class_design, rationale, alternative_designs, assumptions, mermaid_diagram)
+        "INSERT INTO blueprints (request_id, file_manifest, class_design, generated_rationale, alternative_designs, assumptions, mermaid_diagram, accuracy_score, validation_feedback, status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'draft')",
+        (req_id, file_manifest, class_design, rationale, alternative_designs, assumptions, mermaid_diagram, accuracy_score, validation_feedback)
     )
     
     return jsonify({"success": True, "data": blueprint})
