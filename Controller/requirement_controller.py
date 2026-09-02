@@ -306,7 +306,8 @@ def list_requirements():
     status = request.args.get('status')
     track_id = request.args.get('track_id')
     query = """
-        SELECT r.*, s.schema_hints 
+        SELECT r.*, s.schema_hints,
+               (SELECT is_auto_approved FROM blueprints WHERE request_id = r.id ORDER BY id DESC LIMIT 1) as is_auto_approved
         FROM generation_requests r 
         LEFT JOIN generation_specs s ON r.id = s.request_id
         WHERE 1=1
@@ -335,6 +336,9 @@ def get_requirement(req_id):
     
     has_errors = any(v['severity'] == 'error' and not v['passed'] for v in val_rows) if val_rows else False
     has_warnings = any(v['severity'] == 'warning' and not v['passed'] for v in val_rows) if val_rows else False
+
+    if bp:
+        req[0]['is_auto_approved'] = bp[0]['is_auto_approved']
 
     return jsonify({
         "success": True, 
