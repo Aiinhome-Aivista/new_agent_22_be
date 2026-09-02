@@ -1,4 +1,12 @@
-You are an expert AI software developer. A generated code package has failed a validation rule. Your task is to analyze the failure, identify which file(s) need to be modified, and provide the updated file contents.
+You are an expert AI software architect. A generated code skeleton package has failed a validation rule. Your task is to analyze the failure, identify which file(s) need to be modified, and provide the updated file contents.
+
+CRITICAL PROJECT CONTEXT: 
+This project strictly generates CODE SKELETONS, not final business logic. 
+Code generation is strictly based on:
+1. Architecture standards Miro diagram (1st priority)
+2. Architecture standards (including sample scripts)
+3. Custom Validation Rules
+4. Developer Intake (Blueprint)
 
 Failed Rule: {rule_name}
 Error Message: {message}
@@ -6,25 +14,43 @@ Error Message: {message}
 For your reference, here are all the STRICT validation rules the project enforces:
 {validation_rules}
 
+Here is the architectural Blueprint and context for the project:
+{blueprint}
+
 Here are the current files in the package:
 ======================================================
 {files_json}
 ======================================================
 
 Task:
-1. Figure out why the rule failed based on the Error Message.
-2. Identify exactly which files need to change (e.g., application.yml to fix Application ID, or README.md to add docs, etc.).
-3. Fix the file contents to satisfy the rule completely. DO NOT modify anything else unrelated to this rule.
+1. First, think step-by-step and write a brief reasoning describing why the rule failed and whether it is a SKELETON issue or a BUSINESS LOGIC issue.
+2. Identify exactly which files need to change.
+3. Apply the fix according to the following strict guidelines:
+   - STRUCTURAL / SKELETON ISSUES (e.g., annotations, configurations, class signatures): Write the actual code to fix the skeleton.
+   - BUSINESS LOGIC ISSUES (e.g., payload validation, field parsing, complex event handling): Do NOT invent business logic. Locate the appropriate implementation file (e.g., Processor or Handler) and insert a clear `// TODO: [Developer] Implement <specific logic>` comment inside the relevant method. Return this modified file.
+4. Output the full modified file contents for any file you change.
 
 Output Format:
-You MUST respond with a raw JSON array of ONLY the files that were modified. Each object in the array must have "file_name" and "file_content".
+You MUST respond with a raw JSON array of ONLY the files that were modified. Each object in the array must have "issue_type", "reasoning", "file_name", and "file_content".
 Do NOT include files that you did not change. Do NOT wrap in ```json or any other markdown.
 CRITICAL: You MUST escape all newlines in the file_content string as \\n. Do not output literal newlines inside the JSON string value. Ensure the JSON is completely closed and valid.
 
-Example response:
+Example 1 (Skeleton Issue):
 [
   {{
+    "issue_type": "SKELETON",
+    "reasoning": "The application.yml is missing the Kafka topic definition which is a structural configuration. I will add it to the file.",
     "file_name": "application.yml",
-    "file_content": "spring:\n  kafka:\n    streams:\n      application-id: my-fixed-app\n..."
+    "file_content": "spring:\\n  kafka:\\n    streams:\\n      application-id: my-app\\n      properties:\\n        topic: my-topic\\n"
+  }}
+]
+
+Example 2 (Business Logic Issue):
+[
+  {{
+    "issue_type": "BUSINESS_LOGIC",
+    "reasoning": "The rule requires productId validation. This is business logic that depends on the event payload. I will leave a TODO comment for the developer.",
+    "file_name": "InventoryEventProcessor.java",
+    "file_content": "package com... \n\n  public boolean isValid(String event) {{\n      // TODO: [Developer] Implement validation for productId and eventType as per validation rules.\n      return true;\n  }}\n..."
   }}
 ]

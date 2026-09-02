@@ -29,10 +29,14 @@ def load_prompt(prompt_name, **kwargs):
         logger.error(f"Error loading prompt {prompt_name}: {e}")
         return ""
 
-def call_llm(prompt, stream=False, images=None):
+def call_llm(prompt, stream=False, images=None, format=None, options=None):
     payload = {"model": LLM_MODEL, "prompt": prompt, "stream": stream}
     if images:
         payload["images"] = images
+    if format:
+        payload["format"] = format
+    if options:
+        payload["options"] = options
         
     try:
         response = requests.post(LLM_API_URL, json=payload, timeout=800)

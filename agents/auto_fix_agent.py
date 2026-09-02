@@ -27,11 +27,17 @@ def fix_package(request_id, rule_name, message):
     # 2. Get the full validation rules context
     rules_text = get_dynamic_validation_rules(track_id)
     
+    # Get Blueprint context
+    bp = execute_query("SELECT file_manifest, class_design FROM blueprints WHERE request_id=%s ORDER BY id DESC LIMIT 1", (request_id,))
+    blueprint_text = ""
+    if bp:
+        blueprint_text = f"File Manifest:\n{bp[0].get('file_manifest', '')}\n\nClass Design:\n{bp[0].get('class_design', '')}"
+        
     # 3. Call LLM to fix
-    prompt = load_prompt("auto_fix_prompt", rule_name=rule_name, message=message, files_json=files_json, validation_rules=rules_text)
+    prompt = load_prompt("auto_fix_prompt", rule_name=rule_name, message=message, files_json=files_json, validation_rules=rules_text, blueprint=blueprint_text)
     
     logger.info(f"Requesting auto-fix for rule: {rule_name}")
-    response = call_llm(prompt)
+    response = call_llm(prompt, format="json", options={"temperature": 0.3})
     
     if not response:
         logger.error("LLM returned empty response for auto-fix")
@@ -55,19 +61,26 @@ def fix_package(request_id, rule_name, message):
             # If response is truncated, we can't easily fix without a library, but let's try 
             # to replace literal newlines with \\n just in case strict=False didn't catch everything or it was truncated
             try:
-                # Basic escaping of literal newlines within quotes could be complex. 
-                # Let's just try to close the array if it's missing.
-                if not response.rstrip().endswith("]"):
-                    if not response.rstrip().endswith("}"):
+                # LLM often omits the closing brace of the JSON object when the code ends with a brace
+                r = response.rstrip()
+                if r.endswith('"\n]') or r.endswith('"]'):
+                    response = response.replace('"\n]', '"\n}\n]')
+                    response = response.replace('"]', '"}]')
+                elif not r.endswith("]"):
+                    if not r.endswith("}"):
                         response += '"}]'
                     else:
                         response += "]"
+                
                 import re
                 response = re.sub(r'\\(?![/"\\bfnrtu])', r'\\\\', response)
                 fixed_files = json.loads(response, strict=False)
             except Exception as e2:
                 logger.error(f"Failed to repair JSON: {e2}")
                 raise je
+        if isinstance(fixed_files, dict):
+            fixed_files = [fixed_files]
+            
         if not isinstance(fixed_files, list) or len(fixed_files) == 0:
             logger.info("LLM did not return any files to fix.")
             return False
