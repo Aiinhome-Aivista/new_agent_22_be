@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 from flask import Blueprint, request, jsonify
 from config import GEMINI_API_KEY
@@ -16,7 +17,7 @@ KB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'knowledge_bas
 def trigger_ingest():
     ingest_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'rag', 'ingest.py')
     try:
-        subprocess.run(['python', ingest_script], check=True)
+        subprocess.run([sys.executable, ingest_script], check=True)
         return True
     except Exception as e:
         print(f"Error running ingest: {e}")
@@ -365,6 +366,49 @@ def parse_uploaded_file():
             filename = file.filename.strip()
             raw_name = os.path.splitext(filename)[0]
             clean_filename = f"{raw_name}.md"
+            extracted_text = extract_text_from_stream(file.stream, filename)
+            
+            extracted_items.append({
+                "filename": clean_filename,
+                "original_filename": filename,
+                "content": extracted_text
+            })
+            combined_texts.append(f"<!-- Source: {filename} -->\n# {filename}\n\n{extracted_text}")
+
+    if len(extracted_items) == 1:
+        return jsonify({
+            "success": True,
+            "filename": extracted_items[0]["filename"],
+            "content": extracted_items[0]["content"],
+            "items": extracted_items,
+            "count": 1
+        })
+    else:
+        return jsonify({
+            "success": True,
+            "filename": f"batch_upload_{len(extracted_items)}_files.md",
+            "content": "\n\n---\n\n".join(combined_texts),
+            "items": extracted_items,
+            "count": len(extracted_items)
+        })
+
+@standards_bp.route('/generate-github-rules', methods=['POST'])
+def generate_github_rules():
+    files = request.files.getlist('file') or request.files.getlist('files')
+    if not files or all(f.filename == '' for f in files):
+        return jsonify({"success": False, "message": "No files uploaded"}), 400
+
+    extracted_items = []
+    combined_texts = []
+    
+    for file in files:
+        if file and file.filename:
+            filename = file.filename.strip()
+            raw_name = os.path.splitext(filename)[0]
+            clean_filename = f"{raw_name}.md"
+            # Since stream is read above if this was called sequentially, we need to reset or just let it read?
+            # Wait, in Flask file.stream can only be read once unless seek(0) is called.
+            # But these are two separate endpoints, so it's fine.
             extracted_text = extract_text_from_stream(file.stream, filename)
             
             extracted_items.append({
