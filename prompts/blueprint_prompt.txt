@@ -37,7 +37,10 @@ You should include necessary infrastructure files to make the application runnab
 - pom.xml
 - main Application.java
 - configuration files (application.yml, KafkaConfig, etc.)
-- JUnit test classes
+- CRITICAL REQUIREMENT: You MUST ALWAYS generate exactly two specific test classes for the core component/track:
+  1. A Unit Test class (e.g., `<MainComponent>Test.java`)
+  2. An Integration Test class (e.g., `<MainComponent>IntegrationTest.java`)
+  The content and purpose of these test files MUST be dynamically generated based on the specific track's context and information.
 
 IMPORTANT FILE CACHING INSTRUCTION:
 If a file required for this project is ALREADY in the existing_files list, and requires ABSOLUTELY NO MODIFICATIONS, set its "status": "reuse".
