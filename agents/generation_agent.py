@@ -22,8 +22,22 @@ def generate_code(request_id, blueprint, spec, package_name, application_id, pat
     if "README.md" not in [f.get("filename", "") for f in files_to_generate]:
         files_to_generate.append({"filename": "README.md", "purpose": "Documentation for microservice", "status": "planned"})
 
-    # Filter out files that are marked for reuse (they are handled in the orchestrator)
-    pending_files = [f for f in files_to_generate if f.get("status") != "reuse"]
+    from db import execute_query
+    
+    # Filter out files that are marked for reuse, but ONLY if they actually exist in the DB
+    pending_files = []
+    for f in files_to_generate:
+        if f.get("status") == "reuse":
+            past_file = execute_query("SELECT id FROM generated_files WHERE file_name=%s LIMIT 1", (f.get('filename'),))
+            if past_file:
+                # File exists in DB, orchestrator will copy it. Skip generation.
+                continue
+            else:
+                # File marked for reuse but doesn't exist! We must generate it.
+                logger.warning(f"File {f.get('filename')} marked for reuse but not found in DB. Forcing generation.")
+                f["status"] = "planned"
+                
+        pending_files.append(f)
     max_retries = 3
     
     # Process files in batches to optimize speed while avoiding LLM output token limits

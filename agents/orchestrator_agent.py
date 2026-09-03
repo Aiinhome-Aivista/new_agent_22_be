@@ -133,6 +133,8 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         # 5. Generation Agent
         execute_write("DELETE FROM generated_files WHERE request_id=%s", (request_id,))
         update_job_status(job_id, 'running', 'Generation', 'Rendering Jinja2 templates')
+        execute_write("UPDATE generation_requests SET status='in_progress' WHERE id=%s", (request_id,))
+        
         generated_files, updated_blueprint = generate_code(request_id, blueprint, spec, req['package_name'], req['application_id'], patterns)
         
         # Copy reused files from database
@@ -173,7 +175,6 @@ def run_pipeline(request_id, job_id, draft_mode=False):
             logger.error(f"Failed to add generated code to VectorStore: {e}")
             
         write_audit(request_id, "Generation Agent", "Render", "Blueprint", f"Generated {len(generated_files)} files")
-        execute_write("UPDATE generation_requests SET status='in_progress' WHERE id=%s", (request_id,))
         
         # 6. Validation Agent
         update_job_status(job_id, 'running', 'Validation', 'Running validation rules')

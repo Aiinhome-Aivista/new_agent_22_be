@@ -307,7 +307,10 @@ def list_requirements():
     track_id = request.args.get('track_id')
     query = """
         SELECT r.*, s.schema_hints,
-               (SELECT is_auto_approved FROM blueprints WHERE request_id = r.id ORDER BY id DESC LIMIT 1) as is_auto_approved
+               (SELECT is_auto_approved FROM blueprints WHERE request_id = r.id ORDER BY id DESC LIMIT 1) as is_auto_approved,
+               (SELECT job_status FROM pipeline_jobs WHERE request_id = r.id ORDER BY id DESC LIMIT 1) as job_status,
+               (SELECT current_step FROM pipeline_jobs WHERE request_id = r.id ORDER BY id DESC LIMIT 1) as current_step,
+               (SELECT COUNT(*) FROM validation_results WHERE request_id = r.id AND severity = 'error' AND passed = 0) as error_count
         FROM generation_requests r 
         LEFT JOIN generation_specs s ON r.id = s.request_id
         WHERE 1=1
