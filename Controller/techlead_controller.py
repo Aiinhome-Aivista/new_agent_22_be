@@ -33,13 +33,13 @@ def get_validations():
     
     # Map severity for frontend
     severity_map = {
-        'error': 'high',
-        'warning': 'medium',
-        'info': 'low'
+        'error': 'error',
+        'warning': 'warning',
+        'info': 'info'
     }
     
     for row in results:
-        row['severity_display'] = severity_map.get(row.get('severity', 'info'), 'low')
+        row['severity_display'] = severity_map.get(row.get('severity', 'info'), 'info')
         
     return jsonify({"success": True, "data": results})
 
@@ -56,6 +56,60 @@ def action_validation(val_id):
     execute_write("UPDATE validation_results SET status=%s WHERE id=%s", (new_status, val_id))
     
     return jsonify({"success": True, "message": f"Validation {new_status}"})
+
+@techlead_bp.route('/validations/<int:val_id>/inspect', methods=['GET'])
+def inspect_validation(val_id):
+    # Fetch validation result
+    val_res = execute_query("SELECT request_id, rule_name, message FROM validation_results WHERE id=%s", (val_id,))
+    if not val_res:
+        return jsonify({"success": False, "message": "Validation not found"}), 404
+        
+    req_id = val_res[0]['request_id']
+    rule_name = val_res[0]['rule_name']
+    message = val_res[0]['message']
+    
+    # Fetch generated files
+    files = execute_query("SELECT file_name, file_content FROM generated_files WHERE request_id=%s", (req_id,))
+    files_manifest = []
+    if files:
+        for f in files:
+            files_manifest.append({
+                "path": f['file_name'],
+                "content": f['file_content']
+            })
+            
+    import json
+    from llm_service import call_llm, load_prompt
+    
+    prompt = load_prompt(
+        "inspect_validation_prompt",
+        rule_name=rule_name,
+        message=message,
+        files_manifest=json.dumps(files_manifest, default=str)
+    )
+    
+    response_text = call_llm(prompt)
+    
+    try:
+        import re
+        # Clean up any potential markdown formatting
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0].strip()
+            
+        response_text = re.sub(r'\\(?![/"\\bfnrtu])', r'\\\\', response_text)
+        result = json.loads(response_text, strict=False)
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        print(f"Failed to parse LLM inspection response: {e}\nResponse: {response_text}")
+        return jsonify({
+            "success": True, 
+            "data": {
+                "excerpt": f"// Could not extract excerpt.\n// See file related to: {rule_name}",
+                "suggestion": "Check the detailed validation report for more context."
+            }
+        })
 
 @techlead_bp.route('/reviews', methods=['GET'])
 def get_reviews():

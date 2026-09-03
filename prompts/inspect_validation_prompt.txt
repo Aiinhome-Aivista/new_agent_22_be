@@ -1,0 +1,21 @@
+You are an expert AI software architect and auditor.
+A code generation pipeline has produced files, but a dynamic validation rule was violated.
+
+Validation Rule / Issue: {rule_name}
+Error Message: {message}
+
+Here is the generated files manifest for context:
+======================================================
+{files_manifest}
+======================================================
+
+Task:
+Identify exactly where in the generated files this violation occurred (or where the fix should be implemented).
+Provide a short, specific snippet of the affected code (if applicable).
+Provide a clear, actionable suggestion on how to fix this issue.
+
+Format your response strictly as a JSON object with the following keys:
+- "excerpt": (string) A concise code snippet showing the problematic area (max 10-15 lines). If no specific file is at fault (e.g. missing file), write a comment indicating what is missing.
+- "suggestion": (string) A clear, 1-2 sentence instruction to the developer on how to fix it.
+
+Return ONLY the raw JSON object. Do not include markdown formatting or backticks like ```json.
