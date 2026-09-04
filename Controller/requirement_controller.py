@@ -8,8 +8,10 @@ import json
 from rag.vector_store import VectorStore
 import PyPDF2
 from io import BytesIO
+from utils.s3_utils import save_file_and_record
 
 requirement_bp = Blueprint('requirement', __name__)
+
 
 def chunk_text(text, chunk_size=1500, overlap=200):
     chunks = []
@@ -47,8 +49,23 @@ def create_requirement():
             filename = secure_filename(file_upload.filename)
             try:
                 file_bytes = file_upload.read()
+
+                # Upload original file to S3 in original format BEFORE extraction
+                try:
+                    save_file_and_record(
+                        file_obj_or_bytes=file_bytes,
+                        filename=file_upload.filename,
+                        uploaded_by=data.get('uploaded_by') or request.headers.get('X-User-Id') or 'anonymous',
+                        category='requirement_input',
+                        project_id=int(data.get('project_id')) if str(data.get('project_id', '')).isdigit() else None,
+                        subfolder='input'
+                    )
+                except Exception as s3_err:
+                    print(f"[AWS S3 Requirement Upload Notice]: {s3_err}")
+
                 content = ""
                 filename_lower = filename.lower()
+
                 
                 if filename_lower.endswith(('.png', '.jpg', '.jpeg', '.webp')):
                     import base64
@@ -182,8 +199,23 @@ def intake_chat():
             filename = secure_filename(file_upload.filename)
             try:
                 file_bytes = file_upload.read()
+
+                # Upload original file to S3 in original format BEFORE extraction
+                try:
+                    save_file_and_record(
+                        file_obj_or_bytes=file_bytes,
+                        filename=file_upload.filename,
+                        uploaded_by=data.get('uploaded_by') or request.headers.get('X-User-Id') or 'anonymous',
+                        category='requirement_input',
+                        project_id=int(data.get('project_id')) if str(data.get('project_id', '')).isdigit() else None,
+                        subfolder='input'
+                    )
+                except Exception as s3_err:
+                    print(f"[AWS S3 Chat Intake Upload Notice]: {s3_err}")
+
                 content = ""
                 filename_lower = filename.lower()
+
                 
                 if filename_lower.endswith(('.png', '.jpg', '.jpeg', '.webp')):
                     import base64

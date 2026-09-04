@@ -24,6 +24,7 @@ try:
     from Controller.env_config_controller import env_config_bp
     from Controller.techlead_controller import techlead_bp
     from Controller.project_controller import project_bp
+    from Controller.upload_controller import upload_bp
 except ImportError as e:
     logging.warning(f"Failed to import controllers initially (they may not exist yet): {e}")
 
@@ -48,9 +49,12 @@ try:
     app.register_blueprint(env_config_bp, url_prefix="/api/environments")
     app.register_blueprint(techlead_bp, url_prefix="/api/techlead")
     app.register_blueprint(project_bp, url_prefix="/api/projects")
+    app.register_blueprint(upload_bp, url_prefix="/api")
+
 
 except NameError as e:
     logging.warning("Some blueprints were not registered because they are not yet created.")
+
 
 @app.route("/api/health")
 def health():

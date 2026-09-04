@@ -1,16 +1,19 @@
 import os
 import sys
+import io
 import subprocess
 from flask import Blueprint, request, jsonify
 from config import GEMINI_API_KEY
 from llm_service import call_llm
 import google.generativeai as genai
 from db import execute_query, execute_write
+from utils.s3_utils import save_file_and_record
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
 standards_bp = Blueprint('standards', __name__)
+
 
 KB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'knowledge_base')
 
@@ -150,8 +153,34 @@ def save_standard():
         return jsonify({"success": False, "message": str(db_err)}), 500
         
     trigger_ingest()
+
+    # Upload to S3 and record in uploaded_files table
+    s3_record = None
+    try:
+        track_name = data.get('track_name')
+        raw_project_id = data.get('project_id')
+        project_id = int(raw_project_id) if raw_project_id and str(raw_project_id).isdigit() else None
+
+        s3_record = save_file_and_record(
+            file_obj_or_bytes=content,
+            filename=clean_filename,
+            uploaded_by=created_by,
+            category='architecture_standards',
+            project_id=project_id,
+            track_id=track_id,
+            track_name=track_name,
+            subfolder='standards'
+        )
+    except Exception as s3_err:
+        print(f"[AWS S3 Save Standard Notice]: {s3_err}")
     
-    return jsonify({"success": True, "message": "Standard saved successfully"})
+    return jsonify({
+        "success": True, 
+        "message": "Standard saved successfully",
+        "s3": s3_record
+    })
+
+
 
 @standards_bp.route('/upload', methods=['POST'])
 def upload_standard():
@@ -208,10 +237,24 @@ def upload_standard():
         print(f"DB upload sync error: {db_err}")
         
     trigger_ingest()
+
+    # Stream to S3 and record upload in MySQL table
+    s3_record = None
+    try:
+        s3_record = save_file_and_record(
+            file_obj_or_bytes=content,
+            filename=clean_filename,
+            uploaded_by=created_by,
+            category='architecture_standards',
+            subfolder='standards'
+        )
+    except Exception as s3_err:
+        print(f"[AWS S3 Standards Upload Notice] {s3_err}")
     
     return jsonify({
         "success": True, 
         "message": "File uploaded successfully",
+        "s3": s3_record,
         "data": {
             "id": str(new_id) if new_id else clean_filename,
             "filename": clean_filename,
@@ -221,6 +264,7 @@ def upload_standard():
             "created_by": created_by
         }
     })
+
 
 def extract_text_from_stream(file_stream, filename):
     ext = os.path.splitext(filename)[1].lower()
@@ -358,15 +402,45 @@ def parse_uploaded_file():
     if not files or all(f.filename == '' for f in files):
         return jsonify({"success": False, "message": "No files uploaded"}), 400
 
+    uploaded_by = request.form.get('created_by') or request.headers.get('X-User-Id') or 'anonymous'
+    raw_track_id = request.form.get('track_id')
+    track_id = int(raw_track_id) if raw_track_id and str(raw_track_id).isdigit() else None
+    track_name = request.form.get('track_name')
+    raw_project_id = request.form.get('project_id')
+    project_id = int(raw_project_id) if raw_project_id and str(raw_project_id).isdigit() else None
+
     extracted_items = []
     combined_texts = []
+    s3_uploaded_keys = []
     
     for file in files:
         if file and file.filename:
             filename = file.filename.strip()
             raw_name = os.path.splitext(filename)[0]
             clean_filename = f"{raw_name}.md"
-            extracted_text = extract_text_from_stream(file.stream, filename)
+            
+            # Read bytes in memory
+            file_bytes = file.read()
+            
+            # Upload original file directly to S3 and record in uploaded_files database table with track details
+            try:
+                rec = save_file_and_record(
+                    file_obj_or_bytes=file_bytes,
+                    filename=filename,
+                    uploaded_by=uploaded_by,
+                    category='architecture_standards',
+                    project_id=project_id,
+                    track_id=track_id,
+                    track_name=track_name,
+                    subfolder='input'
+                )
+                if rec.get('success'):
+                    s3_uploaded_keys.append(rec.get('s3_key'))
+            except Exception as s3_err:
+                print(f"[AWS S3 Standards Parse Upload Notice]: {s3_err}")
+
+            # Extract text from in-memory stream for preview & rules extraction
+            extracted_text = extract_text_from_stream(io.BytesIO(file_bytes), filename)
             
             extracted_items.append({
                 "filename": clean_filename,
@@ -381,7 +455,8 @@ def parse_uploaded_file():
             "filename": extracted_items[0]["filename"],
             "content": extracted_items[0]["content"],
             "items": extracted_items,
-            "count": 1
+            "count": 1,
+            "s3_keys": s3_uploaded_keys
         })
     else:
         return jsonify({
@@ -389,7 +464,8 @@ def parse_uploaded_file():
             "filename": f"batch_upload_{len(extracted_items)}_files.md",
             "content": "\n\n---\n\n".join(combined_texts),
             "items": extracted_items,
-            "count": len(extracted_items)
+            "count": len(extracted_items),
+            "s3_keys": s3_uploaded_keys
         })
 
 @standards_bp.route('/generate-github-rules', methods=['POST'])
@@ -397,6 +473,13 @@ def generate_github_rules():
     files = request.files.getlist('file') or request.files.getlist('files')
     if not files or all(f.filename == '' for f in files):
         return jsonify({"success": False, "message": "No files uploaded"}), 400
+
+    uploaded_by = request.form.get('created_by') or request.headers.get('X-User-Id') or 'anonymous'
+    raw_track_id = request.form.get('track_id')
+    track_id = int(raw_track_id) if raw_track_id and str(raw_track_id).isdigit() else None
+    track_name = request.form.get('track_name')
+    raw_project_id = request.form.get('project_id')
+    project_id = int(raw_project_id) if raw_project_id and str(raw_project_id).isdigit() else None
 
     extracted_items = []
     combined_texts = []
@@ -406,10 +489,23 @@ def generate_github_rules():
             filename = file.filename.strip()
             raw_name = os.path.splitext(filename)[0]
             clean_filename = f"{raw_name}.md"
-            # Since stream is read above if this was called sequentially, we need to reset or just let it read?
-            # Wait, in Flask file.stream can only be read once unless seek(0) is called.
-            # But these are two separate endpoints, so it's fine.
-            extracted_text = extract_text_from_stream(file.stream, filename)
+            file_bytes = file.read()
+
+            try:
+                save_file_and_record(
+                    file_obj_or_bytes=file_bytes,
+                    filename=filename,
+                    uploaded_by=uploaded_by,
+                    category='architecture_standards',
+                    project_id=project_id,
+                    track_id=track_id,
+                    track_name=track_name,
+                    subfolder='input'
+                )
+            except Exception as s3_err:
+                print(f"[AWS S3 Github Rules Notice]: {s3_err}")
+
+            extracted_text = extract_text_from_stream(io.BytesIO(file_bytes), filename)
             
             extracted_items.append({
                 "filename": clean_filename,
@@ -417,6 +513,8 @@ def generate_github_rules():
                 "content": extracted_text
             })
             combined_texts.append(f"<!-- Source: {filename} -->\n# {filename}\n\n{extracted_text}")
+
+
 
     combined_code = "\n\n---\n\n".join(combined_texts)
     default_filename = f"extracted_rules_{os.path.splitext(extracted_items[0]['original_filename'])[0]}.md" if extracted_items else "extracted_rules.md"
