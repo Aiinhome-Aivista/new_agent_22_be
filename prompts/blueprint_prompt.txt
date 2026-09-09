@@ -61,5 +61,5 @@ Produce a JSON response with exactly this structure:
   "rationale": "Why this design was chosen...",
   "alternative_designs": ["Alternative option 1...", "Alternative option 2..."],
   "assumptions": ["List all AI inferences here clearly marked as assumptions."],
-  "mermaid_diagram": "A valid Mermaid.js flowchart (graph TD) visualizing the exact topology. MUST faithfully reproduce every node, branch, parallel path, and failure path from the visual diagram (Priority 1). DO NOT convert a branching diagram into a single linear sequence. Preserve the exact topological position and relationships. CRITICAL: Every file listed in the file_manifest MUST be represented flow-wise in this Architecture Diagram. Use standard Mermaid formatting without markdown backticks."
+  "mermaid_diagram": "A valid Mermaid.js flowchart (graph TD) visualizing the exact topology. MUST faithfully reproduce every node, branch, parallel path, and failure path from the visual diagram (Priority 1). DO NOT convert a branching diagram into a single linear sequence. Preserve the exact topological position and relationships. Use standard Mermaid formatting without markdown backticks."
 }}
