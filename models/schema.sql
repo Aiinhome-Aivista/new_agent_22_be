@@ -174,8 +174,6 @@ CREATE TABLE IF NOT EXISTS projects (
     client VARCHAR(255) DEFAULT 'pwc',
     health_status ENUM('Healthy', 'At Risk', 'Critical') DEFAULT 'At Risk',
     health_score INT DEFAULT 40,
-    start_date DATE,
-    end_date DATE,
     status ENUM('ACTIVE', 'CLOSED') DEFAULT 'ACTIVE',
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

@@ -36,10 +36,14 @@ REQUIRED INFRASTRUCTURE FILES:
 You should include necessary infrastructure files to make the application runnable (if building a Java/Spring app):
 - pom.xml
 - main Application.java
-- configuration files (application.yml, KafkaConfig, etc.)
-- CRITICAL REQUIREMENT: You MUST ALWAYS generate exactly two specific test classes for the core component/track:
-  1. A Unit Test class (e.g., `<MainComponent>Test.java`)
-  2. An Integration Test class (e.g., `<MainComponent>IntegrationTest.java`)
+- CRITICAL REQUIREMENT: You MUST ALWAYS generate the following mandatory files for every project:
+  1. A configuration YAML file (e.g., application.yml, KafkaConfig, etc.)
+  2. A Processor class
+  3. A Supplier class
+  4. A Handler class
+  5. The basic Java Kafka integration files typically required
+  6. A Unit Test class (e.g., `<MainComponent>Test.java`)
+  7. An Integration Test class (e.g., `<MainComponent>IntegrationTest.java`)
   The content and purpose of these test files MUST be dynamically generated based on the specific track's context and information.
 
 IMPORTANT FILE CACHING INSTRUCTION:
@@ -57,5 +61,5 @@ Produce a JSON response with exactly this structure:
   "rationale": "Why this design was chosen...",
   "alternative_designs": ["Alternative option 1...", "Alternative option 2..."],
   "assumptions": ["List all AI inferences here clearly marked as assumptions."],
-  "mermaid_diagram": "A valid Mermaid.js flowchart (graph TD) visualizing the exact topology. MUST faithfully reproduce every node, branch, parallel path, and failure path from the visual diagram (Priority 1). DO NOT convert a branching diagram into a single linear sequence. Preserve the exact topological position and relationships. Use standard Mermaid formatting without markdown backticks."
+  "mermaid_diagram": "A valid Mermaid.js flowchart (graph TD) visualizing the exact topology. MUST faithfully reproduce every node, branch, parallel path, and failure path from the visual diagram (Priority 1). DO NOT convert a branching diagram into a single linear sequence. Preserve the exact topological position and relationships. CRITICAL: Every file listed in the file_manifest MUST be represented flow-wise in this Architecture Diagram. Use standard Mermaid formatting without markdown backticks."
 }}

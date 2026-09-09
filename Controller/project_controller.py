@@ -16,8 +16,6 @@ def ensure_projects_and_tracks_tables():
                 client VARCHAR(255) DEFAULT 'pwc',
                 health_status ENUM('Healthy', 'At Risk', 'Critical') DEFAULT 'Healthy',
                 health_score INT DEFAULT 90,
-                start_date DATE,
-                end_date DATE,
                 status ENUM('ACTIVE', 'CLOSED') DEFAULT 'ACTIVE',
                 description TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -71,10 +69,6 @@ def get_projects():
     formatted_projects = []
     for p in projects:
         p_dict = dict(p)
-        if p_dict.get('start_date'):
-            p_dict['start_date'] = str(p_dict['start_date'])
-        if p_dict.get('end_date'):
-            p_dict['end_date'] = str(p_dict['end_date'])
             
         tracks = execute_query("SELECT * FROM project_tracks WHERE project_id = %s ORDER BY id ASC", (p_dict['id'],))
         p_dict['tracks'] = [dict(t) for t in tracks] if tracks else []
@@ -92,16 +86,14 @@ def create_project():
         return jsonify({"success": False, "message": "Project name is required"}), 400
         
     client = data.get('client', 'pwc')
-    start_date = data.get('start_date', '2026-07-01')
-    end_date = data.get('end_date', '2027-02-27')
     status = data.get('status', 'ACTIVE').upper()
     description = data.get('description', '')
     tracks_input = data.get('tracks', [])
     
     new_id = execute_write(
-        """INSERT INTO projects (name, client, health_status, health_score, start_date, end_date, status, description)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-        (name, client, 'Healthy', 90, start_date, end_date, status, description)
+        """INSERT INTO projects (name, client, health_status, health_score, status, description)
+           VALUES (%s, %s, %s, %s, %s, %s)""",
+        (name, client, 'Healthy', 90, status, description)
     )
     
     if new_id:
@@ -122,8 +114,6 @@ def create_project():
             "id": new_id,
             "name": name,
             "client": client,
-            "start_date": start_date,
-            "end_date": end_date,
             "status": status,
             "description": description,
             "tracks": created_tracks
@@ -140,8 +130,6 @@ def get_project(project_id):
         return jsonify({"success": False, "message": "Project not found"}), 404
     
     p = dict(rows[0])
-    if p.get('start_date'): p['start_date'] = str(p['start_date'])
-    if p.get('end_date'): p['end_date'] = str(p['end_date'])
     
     tracks = execute_query("SELECT * FROM project_tracks WHERE project_id = %s ORDER BY id ASC", (project_id,))
     p['tracks'] = [dict(t) for t in tracks] if tracks else []
@@ -177,15 +165,13 @@ def update_project(project_id):
     p = dict(rows[0])
     name = data.get('name', p['name'])
     client = data.get('client', p.get('client', 'pwc'))
-    start_date = data.get('start_date', p.get('start_date'))
-    end_date = data.get('end_date', p.get('end_date'))
     status = data.get('status', p['status']).upper()
     description = data.get('description', p.get('description', ''))
     tracks_input = data.get('tracks')
     
     execute_write(
-        """UPDATE projects SET name = %s, client = %s, start_date = %s, end_date = %s, status = %s, description = %s WHERE id = %s""",
-        (name, client, start_date, end_date, status, description, project_id)
+        """UPDATE projects SET name = %s, client = %s, status = %s, description = %s WHERE id = %s""",
+        (name, client, status, description, project_id)
     )
     
     if tracks_input is not None:
@@ -202,8 +188,6 @@ def update_project(project_id):
             
     updated_rows = execute_query("SELECT * FROM projects WHERE id = %s", (project_id,))
     res_p = dict(updated_rows[0])
-    if res_p.get('start_date'): res_p['start_date'] = str(res_p['start_date'])
-    if res_p.get('end_date'): res_p['end_date'] = str(res_p['end_date'])
     
     tracks = execute_query("SELECT * FROM project_tracks WHERE project_id = %s ORDER BY id ASC", (project_id,))
     res_p['tracks'] = [dict(t) for t in tracks] if tracks else []
