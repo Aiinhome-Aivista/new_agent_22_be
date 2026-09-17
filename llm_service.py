@@ -1,6 +1,7 @@
 import requests
 import os
 import logging
+import token_tracker
 from config import LLM_API_URL, LLM_MODEL
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,10 @@ def call_llm(prompt, stream=False, images=None, format=None, options=None):
         response = requests.post(LLM_API_URL, json=payload, timeout=800)
         response.raise_for_status()
         data = response.json()
+        input_tokens = data.get("prompt_eval_count", 0)
+        output_tokens = data.get("eval_count", 0)
+        if input_tokens > 0 or output_tokens > 0:
+            token_tracker.add_tokens(input_tokens, output_tokens)
         return data.get("response", "")
     except Exception as e:
         logger.error(f"Error calling LLM: {e}")

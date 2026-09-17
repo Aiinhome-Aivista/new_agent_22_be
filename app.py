@@ -25,6 +25,7 @@ try:
     from Controller.techlead_controller import techlead_bp
     from Controller.project_controller import project_bp
     from Controller.upload_controller import upload_bp
+    from Controller.token_controller import token_bp
 except ImportError as e:
     logging.warning(f"Failed to import controllers initially (they may not exist yet): {e}")
 
@@ -50,6 +51,7 @@ try:
     app.register_blueprint(techlead_bp, url_prefix="/api/techlead")
     app.register_blueprint(project_bp, url_prefix="/api/projects")
     app.register_blueprint(upload_bp, url_prefix="/api")
+    app.register_blueprint(token_bp, url_prefix="/api/tokens")
 
 
 except NameError as e:

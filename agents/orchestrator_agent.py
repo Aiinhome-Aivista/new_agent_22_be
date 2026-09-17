@@ -12,6 +12,7 @@ from config import PACKAGE_OUTPUT_DIR
 import os
 import zipfile
 from rag.vector_store import VectorStore
+import token_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +198,7 @@ def run_pipeline(request_id, job_id, draft_mode=False):
         execute_write("UPDATE generation_requests SET status='validated' WHERE id=%s", (request_id,))
         
         # Pipeline pauses here for Tech Lead review
+        token_tracker.print_lifecycle_summary()
         update_job_status(job_id, 'completed', 'Finished', 'Pipeline paused for Tech Lead review')
         
     except Exception as e:
