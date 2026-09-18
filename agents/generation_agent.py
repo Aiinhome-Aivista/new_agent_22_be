@@ -65,6 +65,7 @@ def generate_code(request_id, blueprint, spec, package_name, application_id, pat
                     consumer_group=spec.get('consumer_group', ''),
                     state_store_needed=spec.get('state_store_needed', False),
                     developer_intake=spec.get('schema_hints', ''),
+                    implementation_contract=json.dumps(blueprint.get('implementation_contract', {}), indent=2),
                     patterns_json=patterns_json,
                     class_design=blueprint.get('class_design', ''),
                     mermaid_diagram=blueprint.get('mermaid_diagram', '')
