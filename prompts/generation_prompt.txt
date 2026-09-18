@@ -17,6 +17,9 @@ State Store Needed: {state_store_needed}
 DEVELOPER REQUIREMENTS:
 {developer_intake}
 
+IMPLEMENTATION CONTRACT:
+{implementation_contract}
+
 BLUEPRINT ARCHITECTURE:
 {class_design}
 
@@ -29,10 +32,9 @@ CODING STANDARDS:
 RULES FOR INTER-FILE LINKAGE & INDUSTRY STANDARDS:
 
 1. TOPOLOGY & COMPONENT WIRING:
-   - Implement the exact execution graph shown in the FLOW (Mermaid diagram) and BLUEPRINT.
+   - Implement the exact execution graph shown in the IMPLEMENTATION CONTRACT, FLOW (Mermaid diagram) and BLUEPRINT.
    - The Processor builds the Kafka Streams topology using only the abstractions required by the Blueprint (e.g., KStream, branching, filtering, transforming, or KTable/StateStore if state_store_needed is True).
-   - The Processor delegates domain logic to the Handler/Service via Spring dependency injection (constructor injection).
-   - Handlers use Suppliers/Configs for data provisioning, Serdes, or state store access as defined in the Blueprint.
+   - Strictly follow the component relationships defined in the IMPLEMENTATION CONTRACT. For example, if the contract specifies Processor -> Supplier -> Handler, the Processor MUST delegate to the Supplier, and the Supplier MUST instantiate/invoke the Handler. Do not assume hardcoded wiring.
    - Route successful records to the configured Target Topics ({target_topics}).
    - Route failed/invalid records strictly to the error/failure topic specified in the Blueprint or Flow. Do NOT introduce a separate unconfigured DLQ topic unless explicitly defined.
 
