@@ -37,59 +37,29 @@ def fix_package(request_id, rule_name, message):
     prompt = load_prompt("auto_fix_prompt", rule_name=rule_name, message=message, files_json=files_json, validation_rules=rules_text, blueprint=blueprint_text)
     
     logger.info(f"Requesting auto-fix for rule: {rule_name}")
-    response = call_llm(prompt, format="json", options={"temperature": 0.3})
+    response = call_llm(prompt, options={"temperature": 0.3})
     
     if not response:
         logger.error("LLM returned empty response for auto-fix")
         return False
         
     try:
-        # Extract JSON array from markdown response if present
         import re
-        match = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL)
-        if match:
-            response = match.group(1)
-        elif response.startswith("```"):
-            response = response.replace("```", "").strip()
-            
-        try:
-            import re
-            response = re.sub(r'\\(?![/"\\bfnrtu])', r'\\\\', response)
-            fixed_files = json.loads(response, strict=False)
-        except json.JSONDecodeError as je:
-            logger.warning(f"Failed to parse JSON directly, attempting basic repair. Error: {je}")
-            # If response is truncated, we can't easily fix without a library, but let's try 
-            # to replace literal newlines with \\n just in case strict=False didn't catch everything or it was truncated
-            try:
-                # LLM often omits the closing brace of the JSON object when the code ends with a brace
-                r = response.rstrip()
-                if r.endswith('"\n]') or r.endswith('"]'):
-                    response = response.replace('"\n]', '"\n}\n]')
-                    response = response.replace('"]', '"}]')
-                elif not r.endswith("]"):
-                    if not r.endswith("}"):
-                        response += '"}]'
-                    else:
-                        response += "]"
-                
-                import re
-                response = re.sub(r'\\(?![/"\\bfnrtu])', r'\\\\', response)
-                fixed_files = json.loads(response, strict=False)
-            except Exception as e2:
-                logger.error(f"Failed to repair JSON: {e2}")
-                raise je
-        if isinstance(fixed_files, dict):
-            fixed_files = [fixed_files]
-            
-        if not isinstance(fixed_files, list) or len(fixed_files) == 0:
+        # Parse XML <fix> tags from LLM response
+        file_blocks = re.findall(
+            r'<fix[^>]*file_name=["\']([^"\']+)["\'][^>]*>.*?<content>(.*?)</content>\s*</fix>',
+            response, re.DOTALL
+        )
+        
+        if not file_blocks:
             logger.info("LLM did not return any files to fix.")
             return False
             
-        # 3. Update files in DB and on disk
+        # Update files in DB and on disk
         changed_any = False
-        for fixed_file in fixed_files:
-            fname = fixed_file.get("file_name")
-            fcontent = fixed_file.get("file_content")
+        for fname, fcontent in file_blocks:
+            fname = fname.strip()
+            fcontent = fcontent.strip()
             
             if not fname or not fcontent:
                 continue

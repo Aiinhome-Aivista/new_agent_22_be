@@ -31,26 +31,34 @@ Task:
 4. Output the full modified file contents for any file you change.
 
 Output Format:
-You MUST respond with a raw JSON array of ONLY the files that were modified. Each object in the array must have "issue_type", "reasoning", "file_name", and "file_content".
-Do NOT include files that you did not change. Do NOT wrap in ```json or any other markdown.
-CRITICAL: You MUST escape all newlines in the file_content string as \\n. Do not output literal newlines inside the JSON string value. Ensure the JSON is completely closed and valid.
+You MUST respond using XML tags for ONLY the files that were modified. Do NOT use JSON format.
+Do NOT include files that you did not change. Do NOT wrap in markdown code blocks.
+Each modified file must be wrapped in a <fix> tag with file_name and issue_type attributes, containing a <reasoning> tag and a <content> tag with the complete file content.
 
 Example 1 (Skeleton Issue):
-[
-  {{
-    "issue_type": "SKELETON",
-    "reasoning": "The application.yml is missing the Kafka topic definition which is a structural configuration. I will add it to the file.",
-    "file_name": "application.yml",
-    "file_content": "spring:\\n  kafka:\\n    streams:\\n      application-id: my-app\\n      properties:\\n        topic: my-topic\\n"
-  }}
-]
+<fix file_name="application.yml" issue_type="SKELETON">
+<reasoning>The application.yml is missing the Kafka topic definition which is a structural configuration. I will add it to the file.</reasoning>
+<content>
+spring:
+  kafka:
+    streams:
+      application-id: my-app
+      properties:
+        topic: my-topic
+</content>
+</fix>
 
 Example 2 (Business Logic Issue):
-[
-  {{
-    "issue_type": "BUSINESS_LOGIC",
-    "reasoning": "The rule requires productId validation. This is business logic that depends on the event payload. I will leave a TODO comment for the developer.",
-    "file_name": "InventoryEventProcessor.java",
-    "file_content": "package com... \n\n  public boolean isValid(String event) {{\n      // TODO: [Developer] Implement validation for productId and eventType as per validation rules.\n      return true;\n  }}\n..."
-  }}
-]
+<fix file_name="InventoryEventProcessor.java" issue_type="BUSINESS_LOGIC">
+<reasoning>The rule requires productId validation. This is business logic that depends on the event payload. I will leave a TODO comment for the developer.</reasoning>
+<content>
+package com.example;
+
+public class InventoryEventProcessor {{
+    public boolean isValid(String event) {{
+        // TODO: [Developer] Implement validation for productId and eventType as per validation rules.
+        return true;
+    }}
+}}
+</content>
+</fix>
