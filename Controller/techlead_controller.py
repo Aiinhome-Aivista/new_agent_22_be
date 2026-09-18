@@ -174,20 +174,16 @@ def signoff_review():
 def get_reports_summary():
     track_id = request.args.get('track_id')
     
-    # 1. total_passed: Count of requests with NO failed/warning validations
-    # (Simplified: requests in packaged/approved state that have no error records)
-    q1 = "SELECT id FROM generation_requests WHERE status IN ('validated', 'packaged', 'approved')"
+    # 1. total_passed: Count all validations which have status='RESOLVED' for the particular track
+    q1 = """SELECT COUNT(*) as count FROM validation_results v 
+            JOIN generation_requests r ON v.request_id = r.id
+            WHERE v.status='RESOLVED'"""
     p1 = []
     if track_id:
-        q1 += " AND track_id = %s"
+        q1 += " AND r.track_id = %s"
         p1.append(track_id)
-        
-    total_reqs = execute_query(q1, tuple(p1))
-    total_passed = 0
-    for req in total_reqs:
-        errors = execute_query("SELECT id FROM validation_results WHERE request_id=%s AND passed=0", (req['id'],))
-        if not errors:
-            total_passed += 1
+    res1 = execute_query(q1, tuple(p1))
+    total_passed = res1[0]['count'] if res1 else 0
 
     # 2. warnings_and_waivers: count of validation_results with severity in ('warning','info') or status='WAIVED'
     q2 = """SELECT COUNT(*) as count FROM validation_results v 
