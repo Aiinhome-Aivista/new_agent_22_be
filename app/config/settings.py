@@ -51,6 +51,11 @@ DB_PASSWORD = MYSQL_PASSWORD
 DB_NAME = MYSQL_DATABASE
 
 # LLM & Application Settings
+MODE = os.getenv("MODE", "Local")
+MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
+MISTRAL_API_URL = os.getenv("MISTRAL_API_URL", "https://api.mistral.ai/v1/chat/completions")
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
+
 LLM_API_URL = os.getenv("LLM_API_URL", "http://122.163.121.176:3041/api/generate")
 LLM_MODEL = os.getenv("LLM_MODEL", "mistral-small:24b")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
